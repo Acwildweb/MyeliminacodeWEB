@@ -1,0 +1,35 @@
+# MySanitario Sync Module - Apache Configuration
+
+# Abilita URL rewriting
+RewriteEngine On
+
+# Blocca accesso a file sensibili
+<FilesMatch "(^\.|\.(php~|bak|config|dist|fla|inc|ini|log|psd|sh|sql|sw[op])|~)$">
+    Require all denied
+</FilesMatch>
+
+# Blocca accesso a cartelle sensibili
+<DirectoryMatch "^/(config|src|logs)/">
+    Require all denied
+</DirectoryMatch>
+
+# Consenti accesso a index.php e api/
+<Files "index.php">
+    Require all granted
+</Files>
+
+# Imposta charset
+AddDefaultCharset UTF-8
+
+# Disabilita directory listing
+Options -Indexes
+
+# Imposta tipo MIME per JSON
+<IfModule mod_mime.c>
+    AddType application/json .json
+</IfModule>
+
+# Compressione
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/json application/javascript
+</IfModule>

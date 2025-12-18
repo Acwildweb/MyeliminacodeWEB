@@ -1,0 +1,3 @@
+# Ignora tutto tranne .gitkeep
+*
+!.gitkeep

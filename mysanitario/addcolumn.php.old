@@ -1,0 +1,5 @@
+<?php
+include 'connect.php';
+
+$sql = "ALTER TABLE coda ADD COLUMN ipmonitor TEXT(255);";
+$rs = odbc_exec($conn, $sql);

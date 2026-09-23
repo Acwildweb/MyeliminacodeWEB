@@ -161,6 +161,9 @@ function updateHttpJson(string $url, string $token, int $timeout = 30): array
         throw new RuntimeException('GitHub API curl error: ' . $err);
     }
     $data = json_decode($body, true);
+    if (updateIsGithubAuthFailure($code, (string) $body)) {
+        throw new UpdateGithubAuthException('GitHub auth failed', updateClassifyGithubAuthFailure($code, (string) $body));
+    }
     if ($code < 200 || $code >= 300) {
         $msg = is_array($data) && isset($data['message']) ? $data['message'] : ('HTTP ' . $code);
         throw new RuntimeException('GitHub API: ' . $msg);
@@ -490,5 +493,152 @@ function updateLocalStatus(): array
         'built_at' => $local['built_at'] ?? '',
         'os' => PHP_OS_FAMILY,
         'config_present' => $cfgOk,
+        'token_masked' => ($tok = updateTokenPublicInfo())['token_masked'] ?? '',
+        'token_set' => !empty($tok['token_set']),
     ];
+}
+
+
+function updateMaskToken(?string $token): string
+{
+    $token = (string) $token;
+    if ($token === '') {
+        return '';
+    }
+    if (strlen($token) <= 12) {
+        return str_repeat('•', max(4, strlen($token)));
+    }
+    return substr($token, 0, 11) . '••••' . substr($token, -4);
+}
+
+function updateDefaultConfigTemplate(): array
+{
+    return [
+        'owner' => 'Acwildweb',
+        'repo' => 'MyeliminacodeWEB',
+        'token' => '',
+        'branch' => updateDetectBranch(),
+        'protected_paths' => [
+            'connect.php',
+            'update_config.json',
+            'admin_auth.json',
+            'printer_config.json',
+            'totem_ui_config.json',
+            'immaginicliente',
+            'tts_cache',
+            'backups',
+            'update_tmp',
+            'printer_logo.png',
+            'totem_logo.png',
+        ],
+    ];
+}
+
+function updateSaveGithubToken(string $token): array
+{
+    $token = trim($token);
+    if ($token === '' || str_contains($token, 'xxxxxxxx') || str_starts_with($token, 'TUO_')) {
+        throw new RuntimeException('Token non valido.');
+    }
+    $path = updateConfigPath();
+    $cfg = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : updateDefaultConfigTemplate();
+    if (!is_array($cfg)) {
+        $cfg = updateDefaultConfigTemplate();
+    }
+    foreach (['owner','repo','branch','protected_paths'] as $k) {
+        if (!isset($cfg[$k])) {
+            $cfg[$k] = updateDefaultConfigTemplate()[$k];
+        }
+    }
+    $cfg['token'] = $token;
+    $cfg['branch'] = updateDetectBranch($cfg);
+    $json = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+    if (@file_put_contents($path, $json, LOCK_EX) === false) {
+        throw new RuntimeException('Impossibile scrivere update_config.json');
+    }
+    @chmod($path, 0600);
+    updateLog('GitHub token aggiornato da amministrazione (mascherato)');
+    return [
+        'ok' => true,
+        'token_masked' => updateMaskToken($token),
+        'config_present' => true,
+        'branch' => $cfg['branch'],
+    ];
+}
+
+function updateTokenPublicInfo(): array
+{
+    $path = updateConfigPath();
+    if (!is_file($path)) {
+        return ['config_present' => false, 'token_masked' => '', 'token_set' => false];
+    }
+    $cfg = json_decode((string) file_get_contents($path), true) ?: [];
+    $tok = (string) ($cfg['token'] ?? '');
+    $set = $tok !== '' && !str_contains($tok, 'xxxxxxxx') && !str_starts_with($tok, 'TUO_');
+    return [
+        'config_present' => true,
+        'token_masked' => $set ? updateMaskToken($tok) : '',
+        'token_set' => $set,
+        'branch' => updateDetectBranch(is_array($cfg) ? $cfg : null),
+    ];
+}
+
+function updateIsGithubAuthFailure(int $http, string $body): bool
+{
+    // Solo status HTTP di auth: NON cercare stringhe nel body su 200
+    // (il commit JSON puo contenere il sorgente di questo file e causava falsi positivi).
+    if ($http === 401) {
+        return true;
+    }
+    if ($http === 403) {
+        $b = strtolower($body);
+        return str_contains($b, 'bad credentials')
+            || str_contains($b, 'requires authentication')
+            || str_contains($b, 'token expired')
+            || str_contains($b, 'invalid token')
+            || str_contains($b, 'resource not accessible by personal access token');
+    }
+    return false;
+}
+
+class UpdateGithubAuthException extends RuntimeException
+{
+    public string $authKind = 'invalid'; // invalid|expired|forbidden
+
+    public function __construct(string $message = '', string $authKind = 'invalid')
+    {
+        parent::__construct($message);
+        $this->authKind = $authKind;
+    }
+}
+
+function updateClassifyGithubAuthFailure(int $http, string $body): string
+{
+    $b = strtolower($body);
+    if (str_contains($b, 'token expired') || str_contains($b, 'expired')) {
+        return 'expired';
+    }
+    if ($http === 403 || str_contains($b, 'resource not accessible by personal access token')) {
+        return 'forbidden';
+    }
+    return 'invalid';
+}
+
+function updatePublicApiError(Throwable $e): array
+{
+    if ($e instanceof UpdateGithubAuthException) {
+        $kind = $e->authKind ?: 'invalid';
+        $msg = match ($kind) {
+            'expired' => 'Token GitHub scaduto. Generane uno nuovo e salvalo qui.',
+            'forbidden' => 'Token GitHub senza permesso sul repository (Contents: Read su MyeliminacodeWEB).',
+            default => 'Token GitHub non valido. Generane uno nuovo e salvalo qui.',
+        };
+        return [
+            'ok' => false,
+            'token_invalid' => true,
+            'token_error_kind' => $kind,
+            'error' => $msg,
+        ];
+    }
+    return ['ok' => false, 'error' => $e->getMessage()];
 }

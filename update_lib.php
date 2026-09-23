@@ -162,7 +162,7 @@ function updateHttpJson(string $url, string $token, int $timeout = 30): array
     }
     $data = json_decode($body, true);
     if (updateIsGithubAuthFailure($code, (string) $body)) {
-        throw new UpdateGithubAuthException('GitHub auth failed');
+        throw new UpdateGithubAuthException('GitHub auth failed', updateClassifyGithubAuthFailure($code, (string) $body));
     }
     if ($code < 200 || $code >= 300) {
         $msg = is_array($data) && isset($data['message']) ? $data['message'] : ('HTTP ' . $code);
@@ -585,27 +585,59 @@ function updateTokenPublicInfo(): array
 
 function updateIsGithubAuthFailure(int $http, string $body): bool
 {
-    if ($http === 401 || $http === 403) {
+    // Solo status HTTP di auth: NON cercare stringhe nel body su 200
+    // (il commit JSON puo contenere il sorgente di questo file e causava falsi positivi).
+    if ($http === 401) {
         return true;
     }
-    $b = strtolower($body);
-    return str_contains($b, 'bad credentials')
-        || str_contains($b, 'requires authentication')
-        || str_contains($b, 'token expired')
-        || str_contains($b, 'invalid token');
+    if ($http === 403) {
+        $b = strtolower($body);
+        return str_contains($b, 'bad credentials')
+            || str_contains($b, 'requires authentication')
+            || str_contains($b, 'token expired')
+            || str_contains($b, 'invalid token')
+            || str_contains($b, 'resource not accessible by personal access token');
+    }
+    return false;
 }
 
 class UpdateGithubAuthException extends RuntimeException
 {
+    public string $authKind = 'invalid'; // invalid|expired|forbidden
+
+    public function __construct(string $message = '', string $authKind = 'invalid')
+    {
+        parent::__construct($message);
+        $this->authKind = $authKind;
+    }
+}
+
+function updateClassifyGithubAuthFailure(int $http, string $body): string
+{
+    $b = strtolower($body);
+    if (str_contains($b, 'token expired') || str_contains($b, 'expired')) {
+        return 'expired';
+    }
+    if ($http === 403 || str_contains($b, 'resource not accessible by personal access token')) {
+        return 'forbidden';
+    }
+    return 'invalid';
 }
 
 function updatePublicApiError(Throwable $e): array
 {
     if ($e instanceof UpdateGithubAuthException) {
+        $kind = $e->authKind ?: 'invalid';
+        $msg = match ($kind) {
+            'expired' => 'Token GitHub scaduto. Generane uno nuovo e salvalo qui.',
+            'forbidden' => 'Token GitHub senza permesso sul repository (Contents: Read su MyeliminacodeWEB).',
+            default => 'Token GitHub non valido. Generane uno nuovo e salvalo qui.',
+        };
         return [
             'ok' => false,
             'token_invalid' => true,
-            'error' => 'Token GitHub non valido o scaduto. Generane uno nuovo e salvalo qui.',
+            'token_error_kind' => $kind,
+            'error' => $msg,
         ];
     }
     return ['ok' => false, 'error' => $e->getMessage()];

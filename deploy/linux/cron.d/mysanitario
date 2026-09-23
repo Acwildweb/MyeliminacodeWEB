@@ -1,0 +1,6 @@
+# MySanitario — esempi cron
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+0 20 * * * www-data /usr/bin/php /var/www/mysanitario/tocron/import_impostazioni.php >> /var/www/mysanitario/tocron/cron_import.log 2>&1
+*/5 * * * * www-data /usr/bin/php /var/www/mysanitario/tocron/download_images.php >> /var/www/mysanitario/tocron/cron_images.log 2>&1

@@ -1,0 +1,19 @@
+{
+  "owner": "Acwildweb",
+  "repo": "MyeliminacodeWEB",
+  "token": "github_pat_xxxxxxxx",
+  "branch": "",
+  "protected_paths": [
+    "connect.php",
+    "update_config.json",
+    "admin_auth.json",
+    "printer_config.json",
+    "totem_ui_config.json",
+    "immaginicliente",
+    "tts_cache",
+    "backups",
+    "update_tmp",
+    "printer_logo.png",
+    "totem_logo.png"
+  ]
+}

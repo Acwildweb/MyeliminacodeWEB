@@ -1,31 +1,19 @@
-# Secrets & local config
 connect.php
 update_config.json
 admin_auth.json
 printer_config.json
 totem_ui_config.json
-*_auth.json
-
-# Runtime / cache / media
 immaginicliente/
 tts_cache/
 backups/
+update_tmp/
 *.log
 orari_version.stamp
-tocron/*.log
 tocron/orari_version.stamp
+tocron/*.log
 tocron/*.bak-*
 tocron/_stage_update/
 tocron/_bootstrap_*.php
-
-# OS / IDE
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-.env
-.env.*
-
-# Update temp
-update_tmp/
+printer_logo.png
+totem_logo.png
+.git/

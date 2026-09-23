@@ -1,16 +1,132 @@
 <?php
 /**
- * amministrazione.php
+ * config_totem_ui.php
  * Configurazione grafica del totem kiosk
  * – da localhost : accesso diretto (nessuna password)
  * – da rete LAN  : accesso con password
  */
 
-require_once __DIR__ . '/admin_auth_lib.php';
-admin_require_page('amministrazione', 'Configurazione Totem', 'Accesso da rete LAN — inserire utente e password');
-$remoteIP = $GLOBALS['admin_remote_ip'];
-$isLocalhost = $GLOBALS['admin_is_localhost'];
-$currentUser = $GLOBALS['admin_current_user'];
+session_start();
+
+// ── Controllo accesso ─────────────────────────────────────────
+$remoteIP    = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocalhost = in_array($remoteIP, ['127.0.0.1', '::1'], true)
+              || (bool)preg_match('/^10\.213\.134\./', $remoteIP);
+
+function _cfgIsLanIP(string $ip): bool {
+    return (bool)preg_match(
+        '/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|::1$|fc[0-9a-f]|fd[0-9a-f])/i',
+        $ip
+    );
+}
+
+if (!$isLocalhost && !_cfgIsLanIP($remoteIP)) {
+    http_response_code(403);
+    die('<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Accesso negato</title>'
+       .'<style>body{font-family:Segoe UI,sans-serif;background:#0d1b3e;color:#fff;display:flex;'
+       .'align-items:center;justify-content:center;height:100vh;margin:0}'
+       .'.b{text-align:center;padding:40px;background:rgba(255,255,255,.08);border-radius:12px}</style></head>'
+       .'<body><div class="b"><h2>403 — Accesso non consentito</h2>'
+       .'<p>Questa pagina è accessibile solo dalla rete locale.</p></div></body></html>');
+}
+
+// ── Autenticazione LAN ────────────────────────────────────────
+$authFile  = __DIR__ . '/admin_auth.json';
+$authData  = file_exists($authFile)
+    ? (json_decode(file_get_contents($authFile), true) ?: [])
+    : [];
+$pwdHash   = $authData['password_hash'] ?? null;
+$isDefault = ($pwdHash === null);          // true = mai impostata, usa "admin"
+if ($isDefault) $pwdHash = password_hash('admin', PASSWORD_DEFAULT);
+
+$authKey   = 'totem_cfg_' . substr(md5(__DIR__), 0, 8);
+$authError = '';
+
+// Logout
+if (isset($_GET['logout'])) {
+    unset($_SESSION[$authKey]);
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+// Login POST
+if (!$isLocalhost && isset($_POST['_lan_pwd'])) {
+    if (password_verify(trim($_POST['_lan_pwd']), $pwdHash)) {
+        $_SESSION[$authKey] = ['t' => time(), 'ip' => $remoteIP];
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
+    }
+    $authError = 'Password non corretta.';
+    sleep(1); // anti-brute-force
+}
+
+// Verifica sessione (valida 8 ore, vincolata all'IP)
+$sessionOk = $isLocalhost || (
+    isset($_SESSION[$authKey]) &&
+    (time() - (int)($_SESSION[$authKey]['t'] ?? 0)) < 28800 &&
+    ($_SESSION[$authKey]['ip'] ?? '') === $remoteIP
+);
+
+if (!$isLocalhost && !$sessionOk) {
+    http_response_code($authError !== '' ? 401 : 200);
+    ?>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accesso — Configurazione Totem</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Segoe UI,Arial,sans-serif;
+     background:linear-gradient(160deg,#0d1b3e 0%,#1a3a6e 100%);
+     min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-box{background:rgba(255,255,255,.07);backdrop-filter:blur(14px);
+    border:1px solid rgba(100,160,255,.25);border-radius:16px;
+    padding:44px 36px;width:100%;max-width:380px;color:#fff;text-align:center}
+.login-box .lock{font-size:52px;margin-bottom:14px}
+.login-box h1{font-size:20px;margin-bottom:6px}
+.login-box p{font-size:13px;opacity:.6;margin-bottom:26px}
+input[type=password]{width:100%;padding:12px 16px;
+    border:1px solid rgba(255,255,255,.25);border-radius:8px;
+    background:rgba(255,255,255,.1);color:#fff;font-size:15px;
+    outline:none;margin-bottom:14px;letter-spacing:.06em}
+input[type=password]:focus{border-color:#42a5f5}
+.btn-login{width:100%;padding:12px;
+    background:linear-gradient(135deg,#1565c0,#0d47a1);
+    border:none;border-radius:8px;color:#fff;font-size:15px;
+    font-weight:600;cursor:pointer;transition:.2s}
+.btn-login:hover{background:linear-gradient(135deg,#1976d2,#1565c0)}
+.err{background:rgba(220,53,69,.2);border:1px solid rgba(220,53,69,.5);
+    border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;color:#f99}
+.warn{background:rgba(255,193,7,.15);border:1px solid rgba(255,193,7,.4);
+    border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:16px;
+    color:#ffd54f;text-align:left;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="login-box">
+    <div class="lock">🔒</div>
+    <h1>Configurazione Totem</h1>
+    <p>Accesso da rete LAN — inserire la password di amministrazione</p>
+    <?php if ($isDefault): ?>
+    <div class="warn">⚠️ Stai usando la password predefinita <strong>admin</strong>.<br>
+        Accedi e cambiala subito nella sezione <em>🔐 Sicurezza</em>.</div>
+    <?php endif; ?>
+    <?php if ($authError !== ''): ?>
+    <div class="err">❌ <?php echo htmlspecialchars($authError); ?></div>
+    <?php endif; ?>
+    <form method="POST">
+        <input type="password" name="_lan_pwd" placeholder="Password" autofocus autocomplete="current-password">
+        <button type="submit" class="btn-login">🔓 Accedi</button>
+    </form>
+</div>
+</body>
+</html>
+    <?php
+    exit;
+}
+// ── Fine blocco autenticazione ────────────────────────────────
 
 $configFile = __DIR__ . '/totem_ui_config.json';
 $message = ''; $msgType = '';
@@ -40,12 +156,6 @@ $defaults = [
     'colonne_max'           => 3,
     'icone_abilitate'       => true,
     'animazioni_abilitate'  => true,
-    // Comportamento pulsanti fuori orario operativo (totem)
-    'pulsanti_stato_attivo'     => true,
-    'pulsanti_modo_chiuso'      => 'evidenzia',   // evidenzia | disabilita | nascondi
-    'pulsanti_mostra_messaggio' => true,
-    'pulsanti_colore_chiuso'    => '#5b6573',
-    'pulsanti_testo_chiuso'     => 'Chiuso',
     // TTS voce annunci monitor
     'tts_voce'              => 'ElsaNeural',
     'tts_velocita'          => 135,
@@ -56,23 +166,6 @@ $cfg = $defaults;
 if (file_exists($configFile)) {
     $saved = json_decode(file_get_contents($configFile), true);
     if ($saved) $cfg = array_merge($defaults, $saved);
-}
-
-// ── Lista turni per simulatore ticket ────────────────────────
-$turniList = [];
-include_once __DIR__ . '/connect.php';
-if (isset($conn) && $conn) {
-    $r = mysqli_query($conn, 'SELECT ID_turno, turno FROM turni ORDER BY ID_turno');
-    if ($r) { while ($row = mysqli_fetch_assoc($r)) { $turniList[] = $row; } }
-}
-
-// ── Stato aggiornamenti software ─────────────────────────────
-$updateStatus = ['version'=>'—','commit'=>'','branch'=>'—','built_at'=>'','os'=>PHP_OS_FAMILY,'config_present'=>false,'token_masked'=>'','token_set'=>false];
-try {
-    require_once __DIR__ . '/update_lib.php';
-    $updateStatus = updateLocalStatus();
-} catch (Throwable $e) {
-    $updateStatus['error'] = $e->getMessage();
 }
 
 // ── Temi predefiniti ──────────────────────────────────────────
@@ -159,12 +252,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
         'colonne_max'           => max(1, min(6, intval($_POST['colonne_max'] ?? 3))),
         'icone_abilitate'       => isset($_POST['icone_abilitate']),
         'animazioni_abilitate'  => isset($_POST['animazioni_abilitate']),
-        // Comportamento pulsanti fuori orario
-        'pulsanti_stato_attivo'     => isset($_POST['pulsanti_stato_attivo']),
-        'pulsanti_modo_chiuso'      => in_array($_POST['pulsanti_modo_chiuso'] ?? '', ['evidenzia','disabilita','nascondi'], true) ? $_POST['pulsanti_modo_chiuso'] : 'evidenzia',
-        'pulsanti_mostra_messaggio' => isset($_POST['pulsanti_mostra_messaggio']),
-        'pulsanti_colore_chiuso'    => trim($_POST['pulsanti_colore_chiuso'] ?? $defaults['pulsanti_colore_chiuso']),
-        'pulsanti_testo_chiuso'     => trim($_POST['pulsanti_testo_chiuso'] ?? $defaults['pulsanti_testo_chiuso']),
         // TTS: preservati dal JSON (gestiti da config_monitor2.php)
         'tts_attivo'            => $cfg['tts_attivo'],
         'tts_voce'              => $cfg['tts_voce'],
@@ -222,25 +309,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
 $logoFile  = $cfg['logo_path'] !== '' ? __DIR__ . '/' . $cfg['logo_path'] : '';
 $logoExist = $logoFile !== '' && file_exists($logoFile);
 
-// ── Cambia password utente corrente (POST) ────────────────────
+// ── Cambia password LAN (POST) ────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pwd'])) {
     $newPwd  = trim($_POST['new_password']     ?? '');
     $confirm = trim($_POST['confirm_password'] ?? '');
-    $targetUser = $currentUser ?: admin_find_user_by_username('admin');
     if ($newPwd === '') {
         $message = 'La nuova password non può essere vuota.'; $msgType = 'error';
     } elseif (strlen($newPwd) < 6) {
         $message = 'La password deve essere di almeno 6 caratteri.'; $msgType = 'error';
     } elseif ($newPwd !== $confirm) {
         $message = 'Le due password non coincidono.'; $msgType = 'error';
-    } elseif (!$targetUser) {
-        $message = 'Utente non trovato.'; $msgType = 'error';
-    } elseif (admin_update_user_password($targetUser['id'], $newPwd)) {
-        $message   = 'Password aggiornata con successo.';
-        $msgType   = 'success';
     } else {
-        $message = 'Impossibile salvare la password (controlla i permessi della cartella).';
-        $msgType = 'error';
+        $authData['password_hash'] = password_hash($newPwd, PASSWORD_DEFAULT);
+        if (file_put_contents($authFile, json_encode($authData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE))) {
+            $isDefault = false;
+            $message   = '✅ Password aggiornata con successo.';
+            $msgType   = 'success';
+        } else {
+            $message = 'Impossibile salvare la password (controlla i permessi della cartella).';
+            $msgType = 'error';
+        }
     }
 }
 ?>
@@ -389,21 +477,23 @@ input[type=file] { width: 100%; padding: 7px; border: 2px dashed #bbb;
 /* COLONNE SLIDER */
 .col-preview { display: flex; gap: 6px; margin-top: 8px; }
 .col-box { height: 22px; border-radius: 4px; background: #1a73e8; flex: 1; opacity: .7; }
-
-.update-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:12px; }
-.update-meta { font-size:13px; color:#555; line-height:1.6; }
-.update-meta code { background:#f1f3f4; padding:1px 6px; border-radius:4px; font-size:12px; }
-#update-result { display:none; margin-top:14px; padding:12px 16px; border-radius:8px; font-size:13px; border:1px solid transparent; white-space:pre-wrap; }
-#upd-token-box { display:none; margin-top:14px; padding:14px; border:1px solid #ef9a9a; background:#fce8e6; border-radius:8px; }
-#upd-token-box.show { display:block; }
-#upd-token-box .tok-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; align-items:center; }
 </style>
 </head>
 <body>
 <div class="page">
 
 <!-- SIDEBAR -->
-<?php admin_render_sidebar('amministrazione'); ?>
+<nav class="sidebar">
+    <div class="sidebar-logo">🖥️ <span style="font-size:18px">Totem</span></div>
+    <h2>Configurazione</h2>
+    <a href="config_totem_ui.php" class="active">🎨 Grafica Totem</a>
+    <a href="config_stampante.php">🖨️ Stampante Termica</a>
+    <a href="config_monitor2.php">&#128250; Monitor Coda</a>
+    <a href="config_sportelli.php">&#128251; Sportelli / Click</a>
+    <div class="sidebar-sep"></div>
+    <a href="totem.php" target="_blank">👁️ Anteprima Totem</a>
+    <a href="stampa_errori_view.php" target="_blank">📋 Log Stampa</a>
+</nav>
 
 <!-- MAIN -->
 <div class="main">
@@ -510,50 +600,6 @@ input[type=file] { width: 100%; padding: 7px; border: 2px dashed #bbb;
                <?php echo $cfg['animazioni_abilitate'] ? 'checked' : ''; ?>>
         <label for="animazioni_abilitate">Animazioni ingresso (consigliato)</label>
     </div>
-</div>
-
-<!-- COMPORTAMENTO PULSANTI -->
-<div class="card">
-    <div class="card-title"><span>⏰</span> Comportamento Pulsanti (fuori orario)</div>
-    <p style="font-size:13px;color:#888;margin-bottom:6px">
-        Definisce come si comportano i pulsanti del totem quando l'orario operativo del turno
-        è terminato o non è ancora iniziato.
-    </p>
-
-    <div class="toggle-row">
-        <input type="checkbox" id="pulsanti_stato_attivo" name="pulsanti_stato_attivo" value="1"
-               <?php echo $cfg['pulsanti_stato_attivo'] ? 'checked' : ''; ?>>
-        <label for="pulsanti_stato_attivo">Cambia aspetto dei pulsanti fuori orario</label>
-    </div>
-
-    <label class="lbl" for="pulsanti_modo_chiuso">Aspetto quando il servizio è chiuso</label>
-    <select id="pulsanti_modo_chiuso" name="pulsanti_modo_chiuso">
-        <option value="evidenzia"  <?php echo $cfg['pulsanti_modo_chiuso']==='evidenzia'  ? 'selected' : ''; ?>>Evidenzia come chiuso (resta cliccabile)</option>
-        <option value="disabilita" <?php echo $cfg['pulsanti_modo_chiuso']==='disabilita' ? 'selected' : ''; ?>>Disabilita (non cliccabile)</option>
-        <option value="nascondi"   <?php echo $cfg['pulsanti_modo_chiuso']==='nascondi'   ? 'selected' : ''; ?>>Nascondi il pulsante</option>
-    </select>
-
-    <label class="lbl">Colore pulsante chiuso</label>
-    <div class="color-row">
-        <input type="color" id="pulsanti_colore_chiuso_picker"
-               value="<?php echo htmlspecialchars($cfg['pulsanti_colore_chiuso']); ?>"
-               oninput="document.getElementById('pulsanti_colore_chiuso').value=this.value">
-        <input type="text" id="pulsanti_colore_chiuso" name="pulsanti_colore_chiuso"
-               value="<?php echo htmlspecialchars($cfg['pulsanti_colore_chiuso']); ?>"
-               oninput="document.getElementById('pulsanti_colore_chiuso_picker').value=this.value">
-    </div>
-
-    <label class="lbl" for="pulsanti_testo_chiuso">Etichetta stato chiuso</label>
-    <input type="text" id="pulsanti_testo_chiuso" name="pulsanti_testo_chiuso"
-           value="<?php echo htmlspecialchars($cfg['pulsanti_testo_chiuso']); ?>"
-           placeholder="Es: Chiuso">
-
-    <div class="toggle-row">
-        <input type="checkbox" id="pulsanti_mostra_messaggio" name="pulsanti_mostra_messaggio" value="1"
-               <?php echo $cfg['pulsanti_mostra_messaggio'] ? 'checked' : ''; ?>>
-        <label for="pulsanti_mostra_messaggio">Mostra il messaggio quando il servizio non è disponibile</label>
-    </div>
-    <p class="note">Se disattivato, il pulsante cambia solo aspetto senza mostrare orari o avvisi di indisponibilità (né sul pulsante né al tocco).</p>
 </div>
 
 </div><!-- fine colonna sinistra -->
@@ -726,18 +772,14 @@ input[type=file] { width: 100%; padding: 7px; border: 2px dashed #bbb;
         <a href="?logout" style="color:#ea4335;margin-left:10px">🚪 Disconnetti</a>
     </p>
     <?php endif; ?>
-    <?php if (admin_using_default_password()): ?>
+    <?php if ($isDefault): ?>
     <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px 14px;
                 font-size:12px;color:#664d03;margin-bottom:16px">
-        Stai usando le credenziali predefinite <strong>admin / admin</strong>. Cambiale subito.
+        ⚠️ Stai usando la <strong>password predefinita "admin"</strong>. Cambiala subito.
     </div>
     <?php endif; ?>
-    <p style="font-size:13px;color:#888;margin-bottom:14px">
-        Per creare altri utenti e gestire i permessi per sezione apri
-        <a href="gestione_utenti.php">Gestione utenti</a>.
-    </p>
     <form method="POST" style="max-width:420px">
-        <label class="lbl" for="new_password">Nuova password account corrente (min. 6 caratteri)</label>
+        <label class="lbl" for="new_password">Nuova password LAN (min. 6 caratteri)</label>
         <input type="password" id="new_password" name="new_password"
                class="inp" placeholder="Nuova password" autocomplete="new-password">
         <label class="lbl" for="confirm_password">Conferma password</label>
@@ -757,63 +799,6 @@ input[type=file] { width: 100%; padding: 7px; border: 2px dashed #bbb;
 </div>
 
 </form>
-
-<!-- ── AGGIORNAMENTI SOFTWARE ───────────────────────────────────────── -->
-<div class="card" style="margin-top:8px;border-left:4px solid #1a73e8">
-    <div class="card-title"><span>🔄</span> Aggiornamenti software</div>
-    <p style="font-size:13px;color:#888;margin-bottom:10px">
-        Confronta la versione installata con il branch GitHub della piattaforma
-        (<code>windows-iis</code> / <code>linux</code>) e applica gli aggiornamenti con backup automatico.
-        Configura <code>update_config.json</code> (vedi <code>UPDATE_SETUP.md</code>).
-    </p>
-    <div class="update-meta" id="update-meta">
-        <div>Versione locale: <strong id="upd-version"><?php echo htmlspecialchars($updateStatus['version'] ?? '—'); ?></strong></div>
-        <div>Branch: <code id="upd-branch"><?php echo htmlspecialchars($updateStatus['branch'] ?? '—'); ?></code>
-            &nbsp;·&nbsp; OS: <code><?php echo htmlspecialchars($updateStatus['os'] ?? PHP_OS_FAMILY); ?></code></div>
-        <div>Commit: <code id="upd-commit"><?php echo htmlspecialchars(($updateStatus['commit'] ?? '') !== '' ? substr($updateStatus['commit'],0,12) : '—'); ?></code></div>
-        <div>Config GitHub: <?php echo !empty($updateStatus['config_present']) ? '<span style="color:#2e7d32">presente</span>' : '<span style="color:#c62828">mancante</span>'; ?></div>
-        <div>Token API: <code id="upd-token-mask"><?php echo htmlspecialchars(($updateStatus['token_masked'] ?? '') !== '' ? $updateStatus['token_masked'] : '—'); ?></code>
-            <button type="button" class="btn" id="btn-update-show-token" style="margin-left:8px;padding:4px 10px;font-size:12px">Aggiorna token</button>
-        </div>
-    </div>
-    <div id="upd-token-box">
-        <div style="font-size:13px;color:#b71c1c;margin-bottom:8px" id="upd-token-msg">Inserisci un nuovo Fine-grained PAT (Contents: Read) sul repo MyeliminacodeWEB.</div>
-        <a id="upd-token-github" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-block;margin-bottom:10px">Crea nuovo token su GitHub</a>
-        <label class="lbl" for="upd-token-input">Nuovo token</label>
-        <input type="password" id="upd-token-input" class="inp" autocomplete="off" placeholder="github_pat_…">
-        <div class="tok-actions">
-            <button type="button" class="btn btn-green" id="btn-update-save-token">Salva token</button>
-        </div>
-    </div>
-    <div class="update-row">
-        <button type="button" class="btn btn-primary" id="btn-update-check">🔍 Verifica</button>
-        <button type="button" class="btn btn-green" id="btn-update-apply" disabled>⬇ Aggiorna</button>
-    </div>
-    <div id="update-result"></div>
-</div>
-
-<!-- ── SIMULATORE TICKET ─────────────────────────────────────────────── -->
-<div class="card" style="margin-top:8px;border-left:4px solid #ff9800">
-    <div class="card-title"><span>🧪</span> Simulatore Ticket &mdash; Test</div>
-    <p style="font-size:13px;color:#888;margin-bottom:16px">
-        Emette un ticket reale nella coda <strong>bypassando blocchi orari e senza stampare</strong>.
-        Utile per testare il monitor, le chiamate agli sportelli e il TTS.
-    </p>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-        <?php foreach($turniList as $t): ?>
-        <button type="button"
-                style="background:linear-gradient(135deg,#e65100,#ff9800);color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15)"
-                onclick="simTicket(<?php echo intval($t['ID_turno']); ?>, '<?php echo htmlspecialchars(addslashes($t['turno'])); ?>')">
-            🎫 <?php echo htmlspecialchars($t['turno']); ?>
-        </button>
-        <?php endforeach; ?>
-        <?php if(empty($turniList)): ?>
-        <p style="color:#aaa;font-style:italic">Nessun turno trovato nel database.</p>
-        <?php endif; ?>
-    </div>
-    <div id="sim-result" style="display:none;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:600;border:1px solid transparent"></div>
-</div>
-
 </div><!-- /content -->
 </div><!-- /main -->
 </div><!-- /page -->
@@ -899,131 +884,6 @@ function aggiornaColPreview(n) {
 
 // Aggiorna anteprima al cambiamento del nome struttura
 document.getElementById('nome_struttura').addEventListener('input', aggiornaPreview);
-
-
-var _updRemoteSha = '';
-function updShow(msg, kind) {
-    var el = document.getElementById('update-result');
-    el.style.display = 'block';
-    el.style.whiteSpace = 'pre-wrap';
-    if (kind === 'ok') { el.style.background='#e8f5e9'; el.style.borderColor='#66bb6a'; el.style.color='#2e7d32'; }
-    else if (kind === 'err') { el.style.background='#fce8e6'; el.style.borderColor='#ef9a9a'; el.style.color='#c62828'; }
-    else { el.style.background='#e8f0fe'; el.style.borderColor='#90caf9'; el.style.color='#1565c0'; }
-    el.textContent = msg;
-}
-function updSetApplyEnabled(on) {
-    document.getElementById('btn-update-apply').disabled = !on;
-}
-function updShowTokenBox(show, msg) {
-    var box = document.getElementById('upd-token-box');
-    if (msg) document.getElementById('upd-token-msg').textContent = msg;
-    if (show) box.classList.add('show'); else box.classList.remove('show');
-}
-document.getElementById('btn-update-show-token').addEventListener('click', function() {
-    updShowTokenBox(true, 'Incolla un nuovo Fine-grained PAT (Contents: Read) e premi Salva token.');
-});
-document.getElementById('btn-update-save-token').addEventListener('click', function() {
-    var tok = (document.getElementById('upd-token-input').value || '').trim();
-    if (!tok) { updShow('Inserisci un token.', 'err'); return; }
-    var fd = new FormData();
-    fd.append('action', 'save_token');
-    fd.append('token', tok);
-    updShow('Salvataggio token…', 'info');
-    fetch('update_api.php', { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function(r){ return r.json(); })
-        .then(function(d) {
-            if (!d || !d.ok) { updShow((d && d.error) ? d.error : 'Salvataggio fallito', 'err'); return; }
-            document.getElementById('upd-token-input').value = '';
-            if (d.token_masked) document.getElementById('upd-token-mask').textContent = d.token_masked;
-            updShowTokenBox(false);
-            updShow('Token salvato. Premi Verifica.', 'ok');
-        })
-        .catch(function(e){ updShow('Errore di rete: ' + e, 'err'); });
-});
-document.getElementById('btn-update-check').addEventListener('click', function() {
-    updSetApplyEnabled(false);
-    _updRemoteSha = '';
-    updShow('Verifica in corso…', 'info');
-    fetch('update_api.php?action=check&_=' + Date.now(), { credentials: 'same-origin' })
-        .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
-        .then(function(x) {
-            var d = x.j;
-            if (d && d.token_invalid) {
-                updShowTokenBox(true, d.error || 'Token non valido o scaduto.');
-                updShow(d.error || 'Token non valido', 'err');
-                return;
-            }
-            if (!d || !d.ok) {
-                updShow((d && d.error) ? d.error : ('Errore HTTP ' + x.status), 'err');
-                return;
-            }
-            updShowTokenBox(false);
-            if (d.update_available) {
-                _updRemoteSha = d.remote_sha || '';
-                updSetApplyEnabled(true);
-                updShow('Aggiornamento disponibile.\nLocale: ' + (d.local_commit||'—') + '\nRemoto: ' + (d.remote_sha||'—') + '\nBranch: ' + (d.branch||''), 'ok');
-            } else {
-                updShow(d.message || 'Sistema aggiornato', 'ok');
-            }
-        })
-        .catch(function(e){ updShow('Errore di rete: ' + e, 'err'); });
-});
-document.getElementById('btn-update-apply').addEventListener('click', function() {
-    if (!confirm("Applicare l'aggiornamento?\n\nBackup automatico in backups/. I file di config locali non verranno sovrascritti.")) return;
-    updSetApplyEnabled(false);
-    document.getElementById('btn-update-check').disabled = true;
-    updShow('Download e applicazione in corso…', 'info');
-    var fd = new FormData();
-    fd.append('action', 'apply');
-    if (_updRemoteSha) fd.append('sha', _updRemoteSha);
-    fetch('update_api.php', { method: 'POST', body: fd, credentials: 'same-origin' })
-        .then(function(r){ return r.json().then(function(j){ return {status:r.status, j:j}; }); })
-        .then(function(x) {
-            document.getElementById('btn-update-check').disabled = false;
-            var d = x.j;
-            if (!d || !d.ok) { updShow((d && d.error) ? d.error : ('Errore HTTP ' + x.status), 'err'); updSetApplyEnabled(true); return; }
-            if (d.version) {
-                document.getElementById('upd-version').textContent = d.version.version || '—';
-                document.getElementById('upd-commit').textContent = d.version.commit ? d.version.commit.substring(0,12) : '—';
-                if (d.version.branch) document.getElementById('upd-branch').textContent = d.version.branch;
-            }
-            updShow(d.applied ? ('Aggiornamento completato. File: ' + (d.files_updated||0)) : (d.message||'Nessuna modifica'), 'ok');
-        })
-        .catch(function(e){ document.getElementById('btn-update-check').disabled=false; updSetApplyEnabled(true); updShow('Errore di rete: '+e,'err'); });
-});
-
-function simTicket(idturno, nometurno) {
-    var res = document.getElementById('sim-result');
-    res.style.display = 'block';
-    res.style.background = '#fff8e1';
-    res.style.borderColor = '#ffc107';
-    res.style.color = '#7c5c00';
-    res.textContent = '\u23F3 Emissione ticket per ' + nometurno + '...';
-    var fd = new FormData();
-    fd.append('idturno', idturno);
-    fd.append('force', '1');
-    fetch('prendinumero.php', { method: 'POST', body: fd })
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-            if (data.success) {
-                res.style.background = '#e8f5e9';
-                res.style.borderColor = '#66bb6a';
-                res.style.color = '#2e7d32';
-                res.textContent = '\u2713 Turno ' + data.turno + ' \u2014 Numero ' + data.numero + ' inserito in coda';
-            } else {
-                res.style.background = '#fce8e6';
-                res.style.borderColor = '#ef9a9a';
-                res.style.color = '#c62828';
-                res.textContent = '\u2717 ' + (data.error || 'Errore sconosciuto');
-            }
-        })
-        .catch(function(e) {
-            res.style.background = '#fce8e6';
-            res.style.borderColor = '#ef9a9a';
-            res.style.color = '#c62828';
-            res.textContent = '\u2717 Errore di rete: ' + e.message;
-        });
-}
 </script>
 </body>
 </html>

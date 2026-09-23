@@ -52,7 +52,25 @@ try {
     }
 
     if ($action === 'check') {
-        $result = updateCheck();
+        try {
+            $result = updateCheck();
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $pub = updatePublicApiError($e);
+            http_response_code(!empty($pub['token_invalid']) ? 401 : 500);
+            echo json_encode($pub, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    if ($action === 'save_token') {
+        if ($method !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['ok' => false, 'error' => 'Usa POST per save_token']);
+            exit;
+        }
+        $token = trim((string) ($_POST['token'] ?? ''));
+        $result = updateSaveGithubToken($token);
         echo json_encode($result, JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -70,8 +88,9 @@ try {
     }
 
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Azione non valida. Usa status|check|apply']);
+    echo json_encode(['ok' => false, 'error' => 'Azione non valida. Usa status|check|apply|save_token']);
 } catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    $pub = function_exists('updatePublicApiError') ? updatePublicApiError($e) : ['ok'=>false,'error'=>$e->getMessage()];
+    http_response_code(!empty($pub['token_invalid']) ? 401 : 500);
+    echo json_encode($pub, JSON_UNESCAPED_UNICODE);
 }

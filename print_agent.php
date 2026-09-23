@@ -1,25 +1,19 @@
 ﻿<?php
 /**
- * print_agent.php - Agente di stampa locale per il totem (Modalita B)
+ * print_agent.php - Agente di stampa locale per il totem (Modalità B)
  * =========================================================================
- * Questo file deve essere installato SULLA MACCHINA TOTEM (non sul server).
- * Il browser del totem chiama http://localhost/.../print_agent.php direttamente,
- * quindi la stampa avviene sulla stampante fisica collegata al totem stesso.
+ * Installare SULLA MACCHINA TOTEM Windows con stampante Axon A8R (o compatibile).
  *
- * INSTALLAZIONE SUL TOTEM:
- *  1. Installa XAMPP sul totem (Apache + PHP; MySQL non necessario).
- *  2. Copia nella stessa cartella:
- *       - print_agent.php        (questo file)
- *       - printer_profiles.php   (profili ESC/POS per modello)
- *       - print_raw.ps1          (script PowerShell di stampa RAW)
- *       - printer_config_local.json  (printer_name, printer_model, testi)
- *  3. Avvia Apache sul totem. Rimane in ascolto su localhost, non esposto in rete.
- *  4. In config_stampante.php sul server seleziona Modalita B e imposta l'URL
- *     corrispondente (es. http://localhost/MySanitarioConTotem/print_agent.php).
+ * INSTALLAZIONE (Axon A8R):
+ *  1. Driver Windows A8R da axonmicrelec.com → Software e Driver → A8R
+ *  2. XAMPP sul totem (Apache + PHP, extension=gd in php.ini)
+ *  3. Copiare: print_agent.php, printer_profiles.php, print_raw.ps1,
+ *     printer_config_local.json (e opz. printer_logo.png)
+ *  4. In printer_config_local.json: printer_name = nome Windows della A8R,
+ *     printer_model = axon_a8r
+ *  5. Sul server: config_stampante.php → Modalità B + URL agente localhost
  *
- * SICUREZZA: accetta richieste solo da localhost (127.0.0.1 / ::1).
- *            Le richieste cross-origin dal browser locale sono consentite
- *            tramite CORS header (Access-Control-Allow-Origin).
+ * SICUREZZA: solo localhost (127.0.0.1 / ::1). CORS per totem.php sul server.
  */
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -71,79 +65,11 @@ if ($printerName === '') {
     exit;
 }
 
-$intestazione1 = $config['intestazione1'] ?? 'BIGLIETTO PRENOTAZIONE';
-$intestazione2 = $config['intestazione2'] ?? '';
-$piede         = $config['piede']         ?? '';
-$logoPath      = $config['logo_path']     ?? '';
-$logoFile      = $logoPath !== '' ? __DIR__ . '/' . $logoPath : '';
+$logoPath = $config['logo_path'] ?? '';
+$logoFile = $logoPath !== '' ? __DIR__ . '/' . $logoPath : '';
 
-$ESC = "\x1B";
-$dataFmt = substr($data, 6, 2) . '/' . substr($data, 4, 2) . '/' . substr($data, 0, 4);
-$oraFmt  = date('H:i');
-
-$printerModel = normalizePrinterModel($config['printer_model'] ?? 'np2511d2');
-$profile      = getPrinterProfile($printerModel);
-$cmdCodePage  = $profile['cmdCodePage'];
-$cmdCut       = $profile['cmdCut'];
-$feedLines    = $profile['feedLines'];
-$imgMode      = $profile['imgMode'];
-$maxImgWidth  = $profile['maxImgWidth'];
-
-$out  = $ESC . '@';
-$out .= $cmdCodePage;
-$out .= $ESC . 'a' . chr(1);
-
-if ($logoFile !== '' && file_exists($logoFile)) {
-    $escImg = buildEscPosRaster($logoFile, $maxImgWidth, $imgMode);
-    if ($escImg !== '') {
-        $out .= $escImg;
-        if ($imgMode !== 'esc_star') {
-            $out .= "\n";
-        }
-    }
-}
-
-$out .= $ESC . '!' . chr(0x30);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', $intestazione1) . "\n";
-$out .= $ESC . '!' . chr(0x00);
-
-if ($intestazione2 !== '') {
-    $out .= $ESC . '!' . chr(0x08);
-    $out .= iconv('UTF-8', 'CP1252//TRANSLIT', $intestazione2) . "\n";
-    $out .= $ESC . '!' . chr(0x00);
-}
-
-$out .= "================================\n\n";
-
-$out .= $ESC . '!' . chr(0x20);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', 'SPORTELLO') . "\n";
-$out .= $ESC . '!' . chr(0x00);
-
-$out .= $ESC . '!' . chr(0x38);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', $turno) . "\n";
-$out .= $ESC . '!' . chr(0x00);
-
-$out .= "\n";
-$out .= $ESC . '!' . chr(0x20);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', 'NUMERO') . "\n";
-$out .= $ESC . '!' . chr(0x00);
-
-$out .= $ESC . '!' . chr(0x38);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', $numero) . "\n";
-$out .= $ESC . '!' . chr(0x00);
-
-$out .= "\n================================\n\n";
-
-$out .= $ESC . '!' . chr(0x00);
-$out .= iconv('UTF-8', 'CP1252//TRANSLIT', 'Data: ' . $dataFmt . '  Ora: ' . $oraFmt) . "\n";
-
-if ($piede !== '') {
-    $out .= "\n";
-    $out .= iconv('UTF-8', 'CP1252//TRANSLIT', $piede) . "\n";
-}
-
-$out .= $ESC . 'd' . chr($feedLines);
-$out .= $cmdCut;
+$printerModel = normalizePrinterModel($config['printer_model'] ?? 'axon_a8r');
+$out = buildEscPosTicket($turno, $numero, $data, $config, $logoFile !== '' ? $logoFile : null);
 
 $tmpFile = tempnam(sys_get_temp_dir(), 'esc_agent_');
 rename($tmpFile, $tmpFile . '.bin');

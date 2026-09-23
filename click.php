@@ -1,13 +1,15 @@
 <?php
     include 'connect.php';
-    $postazione = $_GET["postazione"] ?? 0;
-    if ($postazione == 0) { exit; }
+    $postazione = trim((string)($_GET['postazione'] ?? ''));
+    if ($postazione === '') { exit; }
+    $postazioneJs = json_encode($postazione, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $postazioneHtml = htmlspecialchars($postazione, ENT_QUOTES, 'UTF-8');
 ?><!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sportello <?php echo (int)$postazione; ?></title>
+  <title>Sportello <?php echo $postazioneHtml; ?></title>
   <script src="jquery-3.6.0.min.js"></script>
   <script>window.vNonTrasferiti = window.vNonTrasferiti || [];</script>
   <style>
@@ -123,7 +125,7 @@
   <header class="pg-header">
     <div class="pg-icon">🖥️</div>
     <div>
-      <div class="pg-title">Sportello <?php echo (int)$postazione; ?></div>
+      <div class="pg-title">Sportello <?php echo $postazioneHtml; ?></div>
       <div class="pg-sub">Postazione operatore</div>
     </div>
     <div class="pg-spacer"></div>
@@ -158,7 +160,7 @@
       <div class="num-label">Numero in servizio</div>
       <div class="num-value zero" id="numero-chiamato">&#8212;</div>
     </div>
-    <div class="info-bar" id="postazione-box">Sei nella postazione <?php echo (int)$postazione; ?></div>
+    <div class="info-bar" id="postazione-box">Sei nella postazione <?php echo $postazioneHtml; ?></div>
     <div class="queue-alert" id="messaggi-box"></div>
     <div class="tables-row">
       <div class="table-card">
@@ -228,7 +230,7 @@
   document.getElementById('richiama').addEventListener('click', function() {
     $.ajax({
       url: 'richiamadapostazione.php', method: 'POST',
-      data: { postazione: <?php echo (int)$postazione; ?> },
+      data: { postazione: <?php echo $postazioneJs; ?> },
       success: function(response) {
         if (response != '-1' && response != '') {
           var el = document.getElementById('numero-chiamato');
@@ -242,7 +244,7 @@
   document.getElementById('chiama').addEventListener('click', function() {
     $.ajax({
       url: 'chiamadapostazione.php', method: 'POST',
-      data: { postazione: <?php echo (int)$postazione; ?> },
+      data: { postazione: <?php echo $postazioneJs; ?> },
       success: function(response) {
         if (response != '-1' && response != '') {
           var el = document.getElementById('numero-chiamato');
@@ -265,7 +267,7 @@
   setInterval(function() {
     $.ajax({
       url: 'ricevicoda.php', method: 'POST',
-      data: { postazione: <?php echo (int)$postazione; ?> },
+      data: { postazione: <?php echo $postazioneJs; ?> },
       success: function(response) {
         var items;
         try { items = JSON.parse(response); } catch(e) { return; }
@@ -292,7 +294,7 @@
   setInterval(function() {
     $.ajax({
       url: 'ricevichiamate.php', method: 'POST',
-      data: { postazione: <?php echo (int)$postazione; ?> },
+      data: { postazione: <?php echo $postazioneJs; ?> },
       success: function(response) {
         var items;
         try { items = JSON.parse(response); } catch(e) { return; }
@@ -309,7 +311,7 @@
   function gestisciTurno(turno) {
     $.ajax({
       url: 'chiamadapostazione.php', method: 'POST',
-      data: { postazione: <?php echo (int)$postazione; ?>, turno: turno },
+      data: { postazione: <?php echo $postazioneJs; ?>, turno: turno },
       success: function(response) {
         if (response != '-1' && response != '') {
           var el = document.getElementById('numero-chiamato');
@@ -353,7 +355,7 @@
     if (!numeroCorrente || numeroCorrente === '\u2014' || numeroCorrente === '000') { alert('Nessun numero da trasferire'); return; }
     $.ajax({
       url: 'trasferisci_ambulatorio.php', method: 'POST',
-      data: { postazione_origine: <?php echo (int)$postazione; ?>, postazione_destinazione: postazioneDestinazione, numero: numeroCorrente },
+      data: { postazione_origine: <?php echo $postazioneJs; ?>, postazione_destinazione: postazioneDestinazione, numero: numeroCorrente },
       success: function(response) {
         if (response === 'OK') {
           try {

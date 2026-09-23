@@ -55,7 +55,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 /* HEADER */
 .kiosk-header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:clamp(10px,2vh,22px) clamp(16px,3vw,48px);background:linear-gradient(135deg,var(--header-da) 0%,var(--header-a) 100%);border-bottom:2px solid rgba(255,255,255,.1);box-shadow:0 4px 30px rgba(0,0,0,.4);gap:16px;min-height:clamp(70px,11vh,120px);animation:slideDown .5s ease both;}
 .header-logo{flex:0 0 auto;display:flex;align-items:center;}
-.header-logo img{height:clamp(40px,7vh,80px);max-width:clamp(80px,12vw,180px);object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));}
+.header-logo img{height:clamp(40px,7vh,80px);max-width:clamp(80px,12vw,180px);object-fit:contain;display:block;padding:clamp(6px,1vh,10px) clamp(10px,1.4vw,16px);background:rgba(255,255,255,.94);border-radius:clamp(8px,1.2vw,14px);border:1px solid rgba(255,255,255,.7);box-shadow:0 2px 14px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.85);}
 .header-logo-ph{width:clamp(44px,7vh,72px);height:clamp(44px,7vh,72px);border-radius:50%;background:linear-gradient(135deg,var(--accento) 0%,var(--tasto-da) 100%);display:flex;align-items:center;justify-content:center;font-size:clamp(18px,3.5vh,36px);font-weight:900;color:#fff;box-shadow:0 0 20px rgba(66,165,245,.4);}
 .header-center{flex:1;text-align:center;padding:0 12px;}
 .header-nome{font-size:clamp(16px,2.8vw,42px);font-weight:800;letter-spacing:.06em;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.5);line-height:1.1;}
@@ -72,7 +72,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .sb-section{padding:clamp(8px,1.2vh,14px) clamp(10px,1.4vw,16px);border-bottom:1px solid rgba(255,255,255,.06);}
 .sb-title{font-size:clamp(9px,.85vw,11px);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accento);opacity:.8;margin-bottom:6px;}
 .sb-logo-box{display:flex;align-items:center;justify-content:center;padding:clamp(6px,.8vh,10px) 0;}
-.sb-logo-box img{max-height:clamp(32px,5vh,60px);max-width:85%;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));}
+.sb-logo-box img{max-height:clamp(32px,5vh,60px);max-width:85%;object-fit:contain;display:block;padding:clamp(5px,.8vh,8px) clamp(8px,1.2vw,12px);background:rgba(255,255,255,.94);border-radius:clamp(6px,1vw,10px);border:1px solid rgba(255,255,255,.7);box-shadow:0 2px 10px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.85);}
 .sb-logo-ph{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accento),var(--tasto-da));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;margin:0 auto;}
 .sb-storico{flex:1 1 auto;overflow-y:auto;padding:clamp(6px,.8vh,10px) clamp(10px,1.4vw,16px);}
 .sb-storico::-webkit-scrollbar{width:3px}
@@ -103,10 +103,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .card-turno{position:relative;display:flex;align-items:center;gap:clamp(14px,2vw,28px);padding:clamp(12px,2vh,28px) clamp(14px,2vw,28px);border:2px solid var(--tasto-bordo);border-radius:clamp(10px,1.2vw,16px);background:linear-gradient(145deg,var(--tasto-da) 0%,var(--tasto-a) 100%);color:#fff;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12);animation:fadeUp .45s ease both;flex:1 1 0;min-height:0;}
 .card-turno::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.03) 40%,transparent 60%);}
 .ct-badge{flex:0 0 auto;width:clamp(80px,8vh,130px);height:clamp(80px,8vh,130px);border-radius:clamp(10px,1.2vw,18px);background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:clamp(36px,5.5vh,72px);font-weight:900;letter-spacing:.02em;flex-shrink:0;}
-.ct-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:6px;justify-content:center;}
+.ct-info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;}
 .ct-nome{font-size:clamp(14px,1.8vh,26px);font-weight:600;letter-spacing:.03em;opacity:.65;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ct-sportello-label{font-size:clamp(16px,2.2vh,32px);font-weight:800;opacity:.95;letter-spacing:.14em;text-transform:uppercase;line-height:1;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45);}
-.ct-sportello-val{font-size:clamp(48px,7.2vh,110px);font-weight:900;color:#fff;line-height:.95;opacity:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-shadow:0 0 22px rgba(66,165,245,.55),0 2px 10px rgba(0,0,0,.5);}
+.ct-sportello-label{font-size:clamp(10px,1.1vh,16px);opacity:.4;letter-spacing:.06em;text-transform:uppercase;line-height:1;}
+.ct-sportello-val{font-size:clamp(18px,2.4vh,38px);font-weight:700;color:var(--accento);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ct-num-col{flex:0 0 auto;text-align:right;}
 .ct-num{font-size:clamp(60px,9vh,140px);font-weight:800;line-height:1;color:var(--accento);letter-spacing:-.02em;text-shadow:0 0 20px rgba(66,165,245,.45);font-variant-numeric:tabular-nums;}
 .ct-num.num-zero{color:rgba(255,255,255,.2);text-shadow:none;font-size:clamp(48px,7vh,110px);}
@@ -215,7 +215,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 <script id="bp" type="application/json"><?php echo json_encode($turni,JSON_HEX_TAG|JSON_HEX_AMP);?></script>
 <script>
 (function(){
-var GIORNI=['Domenica','Lun\u00ced','Marted\u00ec','Mercoled\u00ec','Gioved\u00ec','Venerd\u00ec','Sabato'];
+var GIORNI=['Domenica','Luned\u00ec','Marted\u00ec','Mercoled\u00ec','Gioved\u00ec','Venerd\u00ec','Sabato'];
 var MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 function clock(){var n=new Date();document.getElementById('htime').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');document.getElementById('hdate').textContent=GIORNI[n.getDay()]+' '+n.getDate()+' '+MESI[n.getMonth()]+' '+n.getFullYear();}
 clock();setInterval(clock,1000);
@@ -475,6 +475,17 @@ setTimeout(poll,500);
 var _tickerTesto=null;
 function pollTicker(){$.getJSON("get_monitor2_cfg.php",function(d){_refreshTtsCfg(d);var $ft=$(".kiosk-footer");if(d.news_attivo&&d.news_testo){if(d.news_testo!==_tickerTesto){_tickerTesto=d.news_testo;$ft.html("<span class=\"ticker-label\">Avvisi<\/span><div class=\"ticker-track\"><div class=\"ticker-inner\" style=\"animation-duration:"+Math.max(10,parseInt(d.news_velocita))+"s\"><span>"+$("<div>").text(d.news_testo).html()+"<\/span><\/div><\/div>");}}else{$ft.html("<span style=\"opacity:.2;font-size:11px;letter-spacing:.1em\">MONITOR SALA ATTESA<\/span>");}}).always(function(){setTimeout(pollTicker,30000);});}
 setTimeout(pollTicker,30000);
+// Refresh automatico ogni mattina alle 07:00 (dopo reset notturno cron)
+function scheduleMorningRefresh(){
+  function msUntilNext(){
+    var now=new Date(),next=new Date();
+    next.setHours(7,0,0,0);
+    if(now>=next)next.setDate(next.getDate()+1);
+    return next-now;
+  }
+  setTimeout(function(){window.location.reload();},msUntilNext());
+}
+scheduleMorningRefresh();
 <?php if($cfg['mostra_multimedia']):?>
 var _mIdx=0,_mItems=[];
 var _mDurata=<?php echo max(1,intval($cfg['multimedia_durata']));?> * 1000;

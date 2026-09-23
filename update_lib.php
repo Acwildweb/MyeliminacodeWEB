@@ -161,6 +161,9 @@ function updateHttpJson(string $url, string $token, int $timeout = 30): array
         throw new RuntimeException('GitHub API curl error: ' . $err);
     }
     $data = json_decode($body, true);
+    if (updateIsGithubAuthFailure($code, (string) $body)) {
+        throw new UpdateGithubAuthException('GitHub auth failed');
+    }
     if ($code < 200 || $code >= 300) {
         $msg = is_array($data) && isset($data['message']) ? $data['message'] : ('HTTP ' . $code);
         throw new RuntimeException('GitHub API: ' . $msg);
@@ -490,5 +493,120 @@ function updateLocalStatus(): array
         'built_at' => $local['built_at'] ?? '',
         'os' => PHP_OS_FAMILY,
         'config_present' => $cfgOk,
+        'token_masked' => ($tok = updateTokenPublicInfo())['token_masked'] ?? '',
+        'token_set' => !empty($tok['token_set']),
     ];
+}
+
+
+function updateMaskToken(?string $token): string
+{
+    $token = (string) $token;
+    if ($token === '') {
+        return '';
+    }
+    if (strlen($token) <= 12) {
+        return str_repeat('•', max(4, strlen($token)));
+    }
+    return substr($token, 0, 11) . '••••' . substr($token, -4);
+}
+
+function updateDefaultConfigTemplate(): array
+{
+    return [
+        'owner' => 'Acwildweb',
+        'repo' => 'MyeliminacodeWEB',
+        'token' => '',
+        'branch' => updateDetectBranch(),
+        'protected_paths' => [
+            'connect.php',
+            'update_config.json',
+            'admin_auth.json',
+            'printer_config.json',
+            'totem_ui_config.json',
+            'immaginicliente',
+            'tts_cache',
+            'backups',
+            'update_tmp',
+            'printer_logo.png',
+            'totem_logo.png',
+        ],
+    ];
+}
+
+function updateSaveGithubToken(string $token): array
+{
+    $token = trim($token);
+    if ($token === '' || str_contains($token, 'xxxxxxxx') || str_starts_with($token, 'TUO_')) {
+        throw new RuntimeException('Token non valido.');
+    }
+    $path = updateConfigPath();
+    $cfg = is_file($path) ? (json_decode((string) file_get_contents($path), true) ?: []) : updateDefaultConfigTemplate();
+    if (!is_array($cfg)) {
+        $cfg = updateDefaultConfigTemplate();
+    }
+    foreach (['owner','repo','branch','protected_paths'] as $k) {
+        if (!isset($cfg[$k])) {
+            $cfg[$k] = updateDefaultConfigTemplate()[$k];
+        }
+    }
+    $cfg['token'] = $token;
+    $cfg['branch'] = updateDetectBranch($cfg);
+    $json = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+    if (@file_put_contents($path, $json, LOCK_EX) === false) {
+        throw new RuntimeException('Impossibile scrivere update_config.json');
+    }
+    @chmod($path, 0600);
+    updateLog('GitHub token aggiornato da amministrazione (mascherato)');
+    return [
+        'ok' => true,
+        'token_masked' => updateMaskToken($token),
+        'config_present' => true,
+        'branch' => $cfg['branch'],
+    ];
+}
+
+function updateTokenPublicInfo(): array
+{
+    $path = updateConfigPath();
+    if (!is_file($path)) {
+        return ['config_present' => false, 'token_masked' => '', 'token_set' => false];
+    }
+    $cfg = json_decode((string) file_get_contents($path), true) ?: [];
+    $tok = (string) ($cfg['token'] ?? '');
+    $set = $tok !== '' && !str_contains($tok, 'xxxxxxxx') && !str_starts_with($tok, 'TUO_');
+    return [
+        'config_present' => true,
+        'token_masked' => $set ? updateMaskToken($tok) : '',
+        'token_set' => $set,
+        'branch' => updateDetectBranch(is_array($cfg) ? $cfg : null),
+    ];
+}
+
+function updateIsGithubAuthFailure(int $http, string $body): bool
+{
+    if ($http === 401 || $http === 403) {
+        return true;
+    }
+    $b = strtolower($body);
+    return str_contains($b, 'bad credentials')
+        || str_contains($b, 'requires authentication')
+        || str_contains($b, 'token expired')
+        || str_contains($b, 'invalid token');
+}
+
+class UpdateGithubAuthException extends RuntimeException
+{
+}
+
+function updatePublicApiError(Throwable $e): array
+{
+    if ($e instanceof UpdateGithubAuthException) {
+        return [
+            'ok' => false,
+            'token_invalid' => true,
+            'error' => 'Token GitHub non valido o scaduto. Generane uno nuovo e salvalo qui.',
+        ];
+    }
+    return ['ok' => false, 'error' => $e->getMessage()];
 }

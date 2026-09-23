@@ -10,6 +10,7 @@
 function validPrinterModels(): array
 {
     return [
+        'axon_a8r',
         'np2511d2',
         'epson_t88',
         'escpos_generic',
@@ -19,7 +20,21 @@ function validPrinterModels(): array
 }
 
 /**
- * @return array{cmdCodePage:string,cmdCut:string,feedLines:int,imgMode:string,maxImgWidth:int,label:string}
+ * Etichette per la tendina modello in config_stampante.php.
+ *
+ * @return array<string, string>  value => label HTML
+ */
+function printerModelOptions(): array
+{
+    $out = [];
+    foreach (validPrinterModels() as $id) {
+        $out[$id] = getPrinterProfile($id)['label'];
+    }
+    return $out;
+}
+
+/**
+ * @return array{cmdCodePage:string,cmdCut:string,feedLines:int,imgMode:string,maxImgWidth:int,textEncoding:string,label:string}
  */
 function getPrinterProfile(string $model): array
 {
@@ -27,44 +42,153 @@ function getPrinterProfile(string $model): array
     $GS  = "\x1D";
 
     switch ($model) {
+        case 'axon_a8r':
+            // Axon Micrelec A8R / famiglia POS80K — emulazione ESC/POS (manuale programming POS80K)
+            // ESC t 19 = PC858, GS v 0 = raster, GS V 65 = taglio parziale, 72mm @ 203dpi = 576 dot
+            return [
+                'cmdCodePage'  => $ESC . 't' . chr(19),
+                'cmdCut'       => $GS . 'V' . chr(0x41) . chr(0),
+                'feedLines'    => 4,
+                'imgMode'      => 'gsv0',
+                'maxImgWidth'  => 576,
+                'textEncoding' => 'CP858',
+                'label'        => 'Axon Micrelec A8R (80 mm ESC/POS) — consigliata',
+            ];
         case 'epson_t88':
         case 'escpos_generic':
             return [
-                'cmdCodePage' => $ESC . 't' . chr(16),
-                'cmdCut'      => $GS . 'V' . chr(0x41) . chr(0),
-                'feedLines'   => 4,
-                'imgMode'     => 'gsv0',
-                'maxImgWidth' => 384,
-                'label'       => 'ESC/POS generico / Epson',
+                'cmdCodePage'  => $ESC . 't' . chr(16),
+                'cmdCut'       => $GS . 'V' . chr(0x41) . chr(0),
+                'feedLines'    => 4,
+                'imgMode'      => 'gsv0',
+                'maxImgWidth'  => 384,
+                'textEncoding' => 'CP1252',
+                'label'        => 'ESC/POS generico / Epson',
             ];
         case 'custom_tg2460':
             return [
-                'cmdCodePage' => $ESC . 't' . chr(19),
-                'cmdCut'      => $ESC . 'i',
-                'feedLines'   => 5,
-                'imgMode'     => 'esc_star',
-                'maxImgWidth' => 320,
-                'label'       => 'Custom TG2460HIII (60mm)',
+                'cmdCodePage'  => $ESC . 't' . chr(19),
+                'cmdCut'       => $ESC . 'i',
+                'feedLines'    => 5,
+                'imgMode'      => 'esc_star',
+                'maxImgWidth'  => 320,
+                'textEncoding' => 'CP858',
+                'label'        => 'Custom TG2460HIII (60mm)',
             ];
         case 'custom_tg2480':
             return [
-                'cmdCodePage' => $ESC . 't' . chr(19),
-                'cmdCut'      => $ESC . 'i',
-                'feedLines'   => 5,
-                'imgMode'     => 'esc_star',
-                'maxImgWidth' => 384,
-                'label'       => 'Custom TG2480HIII (80mm)',
+                'cmdCodePage'  => $ESC . 't' . chr(19),
+                'cmdCut'       => $ESC . 'i',
+                'feedLines'    => 5,
+                'imgMode'      => 'esc_star',
+                'maxImgWidth'  => 384,
+                'textEncoding' => 'CP858',
+                'label'        => 'Custom TG2480HIII (80mm)',
             ];
         default: // np2511d2
             return [
-                'cmdCodePage' => $ESC . 't' . chr(5),
-                'cmdCut'      => $ESC . 'i',
-                'feedLines'   => 5,
-                'imgMode'     => 'escb',
-                'maxImgWidth' => 384,
-                'label'       => 'NP-2511D-2',
+                'cmdCodePage'  => $ESC . 't' . chr(5),
+                'cmdCut'       => $ESC . 'i',
+                'feedLines'    => 5,
+                'imgMode'      => 'escb',
+                'maxImgWidth'  => 384,
+                'textEncoding' => 'CP1252',
+                'label'        => 'NP-2511D-2',
             ];
     }
+}
+
+/**
+ * Converte testo UTF-8 nella codifica del profilo stampante.
+ */
+function encodeEscPosText(string $text, string $model): string
+{
+    $enc = getPrinterProfile(normalizePrinterModel($model))['textEncoding'] ?? 'CP1252';
+    $converted = @iconv('UTF-8', $enc . '//TRANSLIT', $text);
+    return $converted !== false ? $converted : $text;
+}
+
+/**
+ * Costruisce il payload ESC/POS del biglietto totem (condiviso da agente locale e stampa server).
+ *
+ * @param array{printer_model?:string,intestazione1?:string,intestazione2?:string,piede?:string} $config
+ */
+function buildEscPosTicket(string $turno, string $numero, string $dataYmd, array $config, ?string $logoFile = null): string
+{
+    $ESC = "\x1B";
+    $model = normalizePrinterModel($config['printer_model'] ?? 'axon_a8r');
+    $profile = getPrinterProfile($model);
+
+    $intestazione1 = $config['intestazione1'] ?? 'BIGLIETTO PRENOTAZIONE';
+    $intestazione2 = $config['intestazione2'] ?? '';
+    $piede         = $config['piede']         ?? '';
+
+    $dataFmt = strlen($dataYmd) === 8
+        ? substr($dataYmd, 6, 2) . '/' . substr($dataYmd, 4, 2) . '/' . substr($dataYmd, 0, 4)
+        : $dataYmd;
+    $oraFmt = date('H:i');
+
+    $enc = static function (string $s) use ($model): string {
+        return encodeEscPosText($s, $model);
+    };
+
+    $out  = $ESC . '@';
+    $out .= $profile['cmdCodePage'];
+    $out .= $ESC . 'a' . chr(1);
+
+    if ($logoFile !== null && $logoFile !== '' && file_exists($logoFile)) {
+        $escImg = buildEscPosRaster($logoFile, $profile['maxImgWidth'], $profile['imgMode']);
+        if ($escImg !== '') {
+            $out .= $escImg;
+            if ($profile['imgMode'] !== 'esc_star') {
+                $out .= "\n";
+            }
+        }
+    }
+
+    $out .= $ESC . '!' . chr(0x30);
+    $out .= $enc($intestazione1) . "\n";
+    $out .= $ESC . '!' . chr(0x00);
+
+    if ($intestazione2 !== '') {
+        $out .= $ESC . '!' . chr(0x08);
+        $out .= $enc($intestazione2) . "\n";
+        $out .= $ESC . '!' . chr(0x00);
+    }
+
+    $out .= "================================\n\n";
+
+    $out .= $ESC . '!' . chr(0x20);
+    $out .= $enc('SPORTELLO') . "\n";
+    $out .= $ESC . '!' . chr(0x00);
+
+    $out .= $ESC . '!' . chr(0x38);
+    $out .= $enc($turno) . "\n";
+    $out .= $ESC . '!' . chr(0x00);
+
+    $out .= "\n";
+    $out .= $ESC . '!' . chr(0x20);
+    $out .= $enc('NUMERO') . "\n";
+    $out .= $ESC . '!' . chr(0x00);
+
+    $out .= $ESC . '!' . chr(0x38);
+    $out .= $enc($numero) . "\n";
+    $out .= $ESC . '!' . chr(0x00);
+
+    $out .= "\n================================\n\n";
+
+    $out .= $ESC . '!' . chr(0x00);
+    $out .= $enc('Data: ' . $dataFmt . '  Ora: ' . $oraFmt) . "\n";
+
+    if ($piede !== '') {
+        $out .= "\n";
+        $out .= $enc($piede) . "\n";
+    }
+
+    $out .= $ESC . 'd' . chr($profile['feedLines']);
+    $out .= $profile['cmdCut'];
+
+    return $out;
 }
 
 /**
@@ -187,5 +311,17 @@ function buildEscPosRaster(string $filePath, int $maxWidth = 384, string $mode =
 function normalizePrinterModel(?string $model): string
 {
     $model = trim((string)$model);
-    return in_array($model, validPrinterModels(), true) ? $model : 'np2511d2';
+    return in_array($model, validPrinterModels(), true) ? $model : 'axon_a8r';
+}
+
+/**
+ * URL predefinito dell'agente locale (Modalità B) in base alla cartella dell'app.
+ */
+function defaultLocalAgentUrl(): string
+{
+    $dir = basename(dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($dir === '' || $dir === '.') {
+        $dir = 'MySanitarioConTotem';
+    }
+    return 'http://localhost/' . $dir . '/print_agent.php';
 }

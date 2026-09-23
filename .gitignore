@@ -37,3 +37,8 @@ update_tmp/
 **/totem_ui_config.json
 **/*_auth.json
 tocron/_stage_update/
+
+system_users.json
+printer_config_local.json
+printer_logo.png
+totem_logo.png

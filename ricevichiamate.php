@@ -31,7 +31,8 @@ if (mysqli_num_rows($rs) > 0) {
         $numero = $row['numero'];
         $coda['postazione'][] = [
             'turno' => $turno,
-            'numero' => $numero
+            'numero' => $numero,
+            'postazione' => $row['postazione']
         ];
     }
 }
@@ -45,7 +46,8 @@ if (mysqli_num_rows($rs) > 0) {
         $numero = $row['numero'];
         $coda['chiamati'][] = [
             'turno' => $turno,
-            'numero' => $numero
+            'numero' => $numero,
+            'postazione' => $row['postazione']
         ];
     }
 }

@@ -1,10 +1,7 @@
 <?php
-// stampa_errori_view.php – Visualizzazione log errori stampa (solo localhost)
-$remoteIP = $_SERVER['REMOTE_ADDR'] ?? '';
-if (!in_array($remoteIP, ['127.0.0.1', '::1'], true)) {
-    http_response_code(403);
-    die('<h2>Accesso consentito solo da localhost.</h2>');
-}
+require_once __DIR__ . '/admin_auth_lib.php';
+admin_require_page('stampa_errori', 'Log Stampa', 'Accesso da rete LAN — inserire utente e password');
+
 $logFile = __DIR__ . '/stampa_errori.log';
 $content = file_exists($logFile) ? htmlspecialchars(file_get_contents($logFile)) : '(nessun errore registrato)';
 ?>
@@ -21,8 +18,8 @@ $content = file_exists($logFile) ? htmlspecialchars(file_get_contents($logFile))
     </style>
 </head>
 <body>
-    <h2>📋 Log errori stampa termica</h2>
-    <p><a href="config_stampante.php">← Torna alla configurazione</a></p>
+    <h2>Log errori stampa termica</h2>
+    <p><a href="config_stampante.php">Torna alla configurazione</a> · <a href="amministrazione.php">Pannello admin</a></p>
     <pre><?php echo $content; ?></pre>
 </body>
 </html>

@@ -5,76 +5,11 @@
  * – da localhost : accesso diretto
  * – da rete LAN  : accesso con password (stessa di amministrazione.php)
  */
-session_start();
 
-$remoteIP    = $_SERVER['REMOTE_ADDR'] ?? '';
-$isLocalhost = in_array($remoteIP, ['127.0.0.1', '::1'], true);
-
-function _cfgIsLanIP(string $ip): bool {
-    return (bool)preg_match(
-        '/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|::1$|fc[0-9a-f]|fd[0-9a-f])/i',
-        $ip
-    );
-}
-
-if (!$isLocalhost && !_cfgIsLanIP($remoteIP)) {
-    http_response_code(403);
-    die('<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Accesso negato</title>'
-       .'<style>body{font-family:Segoe UI,sans-serif;background:#0d1b3e;color:#fff;display:flex;'
-       .'align-items:center;justify-content:center;height:100vh;margin:0}'
-       .'.b{text-align:center;padding:40px;background:rgba(255,255,255,.08);border-radius:12px}</style></head>'
-       .'<body><div class="b"><h2>403 &mdash; Accesso non consentito</h2>'
-       .'<p>Questa pagina &egrave; accessibile solo dalla rete locale.</p></div></body></html>');
-}
-
-$authFile  = __DIR__ . '/admin_auth.json';
-$authData  = file_exists($authFile) ? (json_decode(file_get_contents($authFile), true) ?: []) : [];
-$pwdHash   = $authData['password_hash'] ?? null;
-$isDefault = ($pwdHash === null);
-if ($isDefault) $pwdHash = password_hash('admin', PASSWORD_DEFAULT);
-
-$authKey   = 'totem_cfg_' . substr(md5(__DIR__), 0, 8);
-$authError = '';
-
-if (isset($_GET['logout'])) {
-    unset($_SESSION[$authKey]);
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
-}
-
-if (!$isLocalhost && isset($_POST['_lan_pwd'])) {
-    if (password_verify(trim($_POST['_lan_pwd']), $pwdHash)) {
-        $_SESSION[$authKey] = ['t' => time(), 'ip' => $remoteIP];
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
-    $authError = 'Password non corretta.';
-    sleep(1);
-}
-
-if (!$isLocalhost && empty($_SESSION[$authKey])) {
-    // Mostra form login
-    ?><!DOCTYPE html>
-<html lang="it"><head><meta charset="UTF-8"><title>Login – Monitor Config</title>
-<style>
-body{font-family:Segoe UI,sans-serif;background:#0d1b3e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-.box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:40px;width:320px;text-align:center}
-h2{margin-bottom:24px;font-size:18px;letter-spacing:1px}
-input[type=password]{width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;font-size:15px;margin-bottom:14px}
-button{width:100%;padding:10px;border-radius:8px;border:none;background:#00bcd4;color:#000;font-weight:700;font-size:15px;cursor:pointer}
-.err{color:#ff6b6b;font-size:13px;margin-bottom:10px}
-</style></head>
-<body><div class="box">
-<h2>&#128274; Configurazione Monitor</h2>
-<?php if($authError): ?><div class="err"><?php echo htmlspecialchars($authError);?></div><?php endif;?>
-<form method="post">
-<input type="password" name="_lan_pwd" placeholder="Password" autofocus>
-<button type="submit">Accedi</button>
-</form>
-</div></body></html>
-<?php
-    exit;
-}
+require_once __DIR__ . '/admin_auth_lib.php';
+admin_require_page('config_monitor2', 'Configurazione Monitor', 'Accesso da rete LAN — inserire utente e password');
+$remoteIP = $GLOBALS['admin_remote_ip'];
+$isLocalhost = $GLOBALS['admin_is_localhost'];
 
 // ── Include DB ────────────────────────────────────────────────
 include 'connect.php';
@@ -259,24 +194,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:#00bcd4;cursor:pointer}
 </style>
 </head>
 <body>
-<nav class="sidebar">
-  <div class="sidebar-logo">&#9881;&#65039; Config</div>
-  <h2>Totem</h2>
-  <a href="amministrazione.php">&#127912; Grafica Totem</a>
-  <a href="config_stampante.php">&#128424; Stampante</a>
-  <a href="config_sportelli.php">&#128251; Sportelli / Click</a>
-  <div class="sidebar-sep"></div>
-  <h2>Monitor</h2>
-  <a href="config_monitor2.php" class="active">&#128250; Monitor Coda</a>
-  <div class="sidebar-sep"></div>
-  <a href="totem.php" target="_blank">&#128065; Anteprima Totem</a>
-  <a href="index2.php" target="_blank">&#128065; Anteprima Monitor</a>
-  <a href="stampa_errori_view.php" target="_blank">&#128203; Log Stampa</a>
-  <?php if(!$isLocalhost):?>
-  <div class="sidebar-sep"></div>
-  <a href="?logout=1">&#128275; Esci</a>
-  <?php endif;?>
-</nav>
+<?php admin_render_sidebar('config_monitor2', '&#9881;&#65039; Config'); ?>
 <div class="content">
   <h1>&#128250; Monitor Coda</h1>
   <div class="subtitle">Configura l'aspetto del nuovo monitor di chiamata numeri (index2.php)</div>

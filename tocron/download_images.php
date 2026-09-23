@@ -5,9 +5,9 @@
 // Log: tocron/download_images.log (ruota automaticamente oltre 1 MB)
 
 // ---------------- CONFIGURAZIONE ----------------
-$listEndpointBase    = 'https://pannello.myeliminacode.it/appOffline/contactsvr/contactsvr/getfilesgruppo.php';
-$listEndpointCliente = 'https://pannello.myeliminacode.it/appOffline/contactsvr/contactsvr/getfilescliente.php';
-$remoteFilesBase     = 'https://pannello.myeliminacode.it/appOffline';
+$listEndpointBase    = 'https://myeliminacode.acwild.eu/appOffline/contactsvr/contactsvr/getfilesgruppo.php';
+$listEndpointCliente = 'https://myeliminacode.acwild.eu/appOffline/contactsvr/contactsvr/getfilescliente.php';
+$remoteFilesBase     = 'https://myeliminacode.acwild.eu/appOffline';
 $timeoutSeconds      = 30;
 $logFile             = __DIR__ . DIRECTORY_SEPARATOR . 'download_images.log';
 $logMaxBytes         = 1048576; // 1 MB: ruota il log oltre questa dimensione

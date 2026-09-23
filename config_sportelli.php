@@ -3,63 +3,10 @@
  * config_sportelli.php
  * Anteprima pagine sportello (click.php) e generatore scorciatoie Windows
  */
-session_start();
-
-// ── Accesso ────────────────────────────────────────────────────
-$remoteIP    = $_SERVER['REMOTE_ADDR'] ?? '';
-$isLocalhost = in_array($remoteIP, ['127.0.0.1', '::1'], true);
-function _sptIsLanIP(string $ip): bool {
-    return (bool)preg_match('/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|::1$)/i', $ip);
-}
-if (!$isLocalhost && !_sptIsLanIP($remoteIP)) {
-    http_response_code(403);
-    die('<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Accesso negato</title>
-    <style>body{font-family:Segoe UI,sans-serif;background:#0d1b3e;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-    .b{text-align:center;padding:40px;background:rgba(255,255,255,.08);border-radius:12px}</style></head>
-    <body><div class="b"><h2>403 — Accesso non consentito</h2><p>Solo rete locale.</p></div></body></html>');
-}
-$authFile  = __DIR__ . '/admin_auth.json';
-$authData  = file_exists($authFile) ? (json_decode(file_get_contents($authFile), true) ?: []) : [];
-$pwdHash   = $authData['password_hash'] ?? null;
-$isDefault = ($pwdHash === null);
-if ($isDefault) $pwdHash = password_hash('admin', PASSWORD_DEFAULT);
-$authKey   = 'totem_cfg_' . substr(md5(__DIR__), 0, 8);
-$authError = '';
-if (isset($_GET['logout'])) {
-    unset($_SESSION[$authKey]);
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
-}
-if (!$isLocalhost && isset($_POST['_lan_pwd'])) {
-    if (password_verify(trim($_POST['_lan_pwd']), $pwdHash)) {
-        $_SESSION[$authKey] = ['t' => time(), 'ip' => $remoteIP];
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
-    $authError = 'Password non corretta.';
-    sleep(1);
-}
-$sessionOk = $isLocalhost || (
-    isset($_SESSION[$authKey]) &&
-    (time() - (int)($_SESSION[$authKey]['t'] ?? 0)) < 28800 &&
-    ($_SESSION[$authKey]['ip'] ?? '') === $remoteIP
-);
-if (!$isLocalhost && !$sessionOk) {
-    ?><!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Accesso — Sportelli</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(160deg,#0d1b3e 0%,#1a3a6e 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}
-.login-box{background:rgba(255,255,255,.07);backdrop-filter:blur(14px);border:1px solid rgba(100,160,255,.25);border-radius:16px;padding:44px 36px;width:100%;max-width:380px;color:#fff;text-align:center}
-.login-box .lock{font-size:52px;margin-bottom:14px}.login-box h1{font-size:20px;margin-bottom:6px}.login-box p{font-size:13px;opacity:.6;margin-bottom:26px}
-input[type=password]{width:100%;padding:12px 16px;border:1px solid rgba(255,255,255,.25);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:15px;outline:none;margin-bottom:14px}
-input[type=password]:focus{border-color:#42a5f5}.btn-login{width:100%;padding:12px;background:linear-gradient(135deg,#1565c0,#0d47a1);border:none;border-radius:8px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
-.err{background:rgba(220,53,69,.2);border:1px solid rgba(220,53,69,.5);border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;color:#f99}</style></head>
-<body><div class="login-box"><div class="lock">🔒</div><h1>Gestione Sportelli</h1>
-<p>Accesso da rete LAN</p>
-<?php if ($authError !== ''): ?><div class="err">❌ <?php echo htmlspecialchars($authError); ?></div><?php endif; ?>
-<form method="POST"><input type="password" name="_lan_pwd" placeholder="Password" autofocus>
-<button type="submit" class="btn-login">🔓 Accedi</button></form></div></body></html>
-    <?php exit;
-}
+require_once __DIR__ . '/admin_auth_lib.php';
+admin_require_page('config_sportelli', 'Gestione Sportelli', 'Accesso da rete LAN — inserire utente e password');
+$remoteIP = $GLOBALS['admin_remote_ip'];
+$isLocalhost = $GLOBALS['admin_is_localhost'];
 
 // ── DB ─────────────────────────────────────────────────────────
 include 'connect.php';
@@ -172,19 +119,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #
 <body>
 <div class="page">
 
-<!-- SIDEBAR -->
-<nav class="sidebar">
-    <div class="sidebar-logo">🖥️ <span style="font-size:18px">Totem</span></div>
-    <h2>Configurazione</h2>
-    <a href="amministrazione.php">🎨 Grafica Totem</a>
-    <a href="config_stampante.php">🖨️ Stampante Termica</a>
-    <a href="config_monitor2.php">&#128250; Monitor Coda</a>
-    <div class="sidebar-sep"></div>
-    <a href="config_sportelli.php" class="active">🖥️ Sportelli / Click</a>
-    <div class="sidebar-sep"></div>
-    <a href="totem.php" target="_blank">👁️ Anteprima Totem</a>
-    <a href="stampa_errori_view.php" target="_blank">📋 Log Stampa</a>
-</nav>
+<?php admin_render_sidebar('config_sportelli', '🖥️ <span style="font-size:18px">Totem</span>'); ?>
 
 <!-- MAIN -->
 <div class="main">

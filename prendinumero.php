@@ -19,11 +19,16 @@ function maxchiamateturno($conn, $idturno) {
 }
 
 // Funzione per verificare se il turno è attivo
+function normalizzaOraHHMM($ora) {
+    $ora = preg_replace("/\D/", "", str_replace(":", "", trim((string)$ora)));
+    return str_pad($ora, 4, "0", STR_PAD_LEFT);
+}
+
 function verificaTurnoAttivo($conn, $idturno) {
     // Ottieni giorno della settimana (0=domenica, 1=lunedì, ..., 6=sabato)
     $giorno = date('w');
     // Ottieni ora corrente in formato HHMM
-    $ora_corrente = date('Hi');
+    $ora_corrente = normalizzaOraHHMM(date('Hi'));
     
     // Nomi dei giorni della settimana
     $nomi_giorni = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
@@ -64,8 +69,8 @@ function verificaTurnoAttivo($conn, $idturno) {
     $orari = [];
     
     while ($row = mysqli_fetch_assoc($result)) {
-        $ora_inizio = str_replace(':', '', $row['ora_inizio']);
-        $ora_fine = str_replace(':', '', $row['ora_fine']);
+        $ora_inizio = normalizzaOraHHMM($row['ora_inizio']);
+        $ora_fine = normalizzaOraHHMM($row['ora_fine']);
         
         $orari[] = [
             'giorno' => $nomi_giorni[$row['giorno']],

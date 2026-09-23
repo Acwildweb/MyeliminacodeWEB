@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // ══════════════════════════════════════════════════════════════
 //  totem.php  –  Interfaccia kiosk moderna, generata dinamicamente
 // ══════════════════════════════════════════════════════════════
@@ -20,6 +20,8 @@ if (isset($_GET['orari_ver'])) {
     }
     exit;
 }
+
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 // ── Configurazione UI ─────────────────────────────────────────
 $uiConfigFile = __DIR__ . '/totem_ui_config.json';
@@ -144,14 +146,11 @@ if ($ui['sfondo_tipo'] === 'gradiente') {
 } else {
     $bgCSS = "background-color: {$ui['sfondo_colore']};";
 }
-header('Cache-Control: no-store, no-cache, must-revalidate');
-header('Pragma: no-cache');
 ?>
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo htmlspecialchars($ui['nome_struttura']); ?></title>
 <style>
@@ -199,7 +198,12 @@ body::before {
 .header-logo { flex:0 0 auto; display:flex; align-items:center; }
 .header-logo img {
     height:clamp(44px,8vh,100px); max-width:clamp(100px,14vw,220px);
-    object-fit:contain; filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));
+    object-fit:contain; display:block;
+    padding:clamp(6px,1vh,10px) clamp(10px,1.4vw,16px);
+    background:rgba(255,255,255,.94);
+    border-radius:clamp(8px,1.2vw,14px);
+    border:1px solid rgba(255,255,255,.7);
+    box-shadow:0 2px 14px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.85);
 }
 .header-logo-placeholder {
     width:clamp(44px,8vh,100px); height:clamp(44px,8vh,100px); border-radius:50%;
@@ -251,9 +255,17 @@ body::before {
     padding:clamp(12px,2vh,28px) clamp(20px,4vw,56px);
     gap:clamp(12px,2.5vw,40px);
 }
+.btn-grid.col1 .btn-turno-block {
+    flex-direction:row; align-items:center; gap:clamp(12px,2.5vw,28px);
+    width:auto; flex:1 1 auto;
+}
+.btn-grid.col1 .btn-separatore {
+    width:2px; height:clamp(40px,7vh,72px); margin:0;
+    background:linear-gradient(180deg,transparent,rgba(255,255,255,.5),transparent);
+}
 .btn-grid.col1 .btn-lettera {
     flex:0 0 auto;
-    font-size:clamp(32px,6vw,80px);
+    font-size:clamp(28px,5vw,72px);
 }
 .btn-grid.col1 .btn-icona {
     flex:0 0 auto;
@@ -261,7 +273,8 @@ body::before {
 }
 .btn-grid.col1 .btn-nome {
     text-align:left;
-    font-size:clamp(13px,2vw,28px);
+    font-size:clamp(18px,3.2vw,48px);
+    flex:1 1 auto;
 }
 .btn-grid.col1 .btn-hint {
     display:none;
@@ -297,8 +310,32 @@ body::before {
 .btn-servizio:disabled { opacity:.45; cursor:not-allowed; transform:none !important; filter:grayscale(.5); }
 .btn-icona { font-size:clamp(24px,4vw,58px); line-height:1; filter:drop-shadow(0 2px 6px rgba(0,0,0,.4)); transition:transform .2s ease; }
 .btn-servizio:hover .btn-icona { transform:scale(1.12) rotate(-3deg); }
-.btn-lettera { font-size:clamp(28px,5vw,72px); font-weight:900; letter-spacing:-.02em; line-height:1; text-shadow:0 2px 12px rgba(0,0,0,.45); opacity:.95; }
-.btn-nome { font-size:clamp(11px,1.6vw,22px); font-weight:600; letter-spacing:.02em; text-align:center; line-height:1.25; text-shadow:0 1px 6px rgba(0,0,0,.5); word-break:break-word; opacity:.9; }
+.btn-turno-block {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:clamp(2px,0.4vh,6px); width:100%;
+}
+.btn-separatore {
+    display:block; width:clamp(40px,6vw,80px); height:2px; flex-shrink:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+    margin:clamp(4px,0.6vh,10px) 0;
+    border-radius:2px;
+}
+.btn-lettera {
+    font-size:clamp(20px,3.2vw,48px); font-weight:900; letter-spacing:-.02em;
+    line-height:1; text-shadow:0 2px 12px rgba(0,0,0,.45); opacity:.88;
+}
+.btn-nome {
+    font-size:clamp(22px,4vw,64px); font-weight:800; letter-spacing:.14em;
+    text-transform:uppercase; text-align:center; line-height:1.1;
+    color:var(--accento);
+    text-shadow:0 0 22px rgba(66,165,245,.6), 0 2px 10px rgba(0,0,0,.55);
+    padding:clamp(8px,1.2vh,18px) clamp(16px,2.8vw,36px);
+    background:rgba(255,255,255,.11);
+    border:2px solid rgba(66,165,245,.5);
+    border-radius:clamp(10px,1.5vw,20px);
+    box-shadow:0 4px 24px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.18), 0 0 28px rgba(66,165,245,.2);
+    word-break:break-word; opacity:1; max-width:100%;
+}
 .btn-hint { font-size:clamp(9px,1vw,13px); opacity:.5; font-weight:400; letter-spacing:.05em; text-transform:uppercase; }
 .btn-servizio.loading .btn-icona { animation:spin .7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
@@ -585,10 +622,13 @@ body::before {
       <?php if($ui['icone_abilitate']): ?>
       <span class="btn-icona"><?php echo $icona; ?></span>
       <?php endif; ?>
-      <span class="btn-lettera"><?php echo htmlspecialchars($lettera); ?></span>
-      <?php if($desc !== ''): ?>
-      <span class="btn-nome"><?php echo htmlspecialchars($desc); ?></span>
-      <?php endif; ?>
+      <div class="btn-turno-block">
+        <span class="btn-lettera"><?php echo htmlspecialchars($lettera); ?></span>
+        <?php if($desc !== ''): ?>
+        <span class="btn-separatore" aria-hidden="true"></span>
+        <span class="btn-nome"><?php echo htmlspecialchars($desc); ?></span>
+        <?php endif; ?>
+      </div>
       <span class="btn-hint">Premi per il numero</span>
       <span class="btn-stato" style="display:none"></span>
     </button>
@@ -655,6 +695,17 @@ body::before {
 })();
 
 // ── Comportamento pulsanti fuori orario ───────────────────────
+var SERVER_ORA_BASE = <?php echo (int)date('Hi'); ?>;
+var SERVER_DAY = <?php echo (int)date('w'); ?>;
+var PAGE_LOAD_MS = Date.now();
+function _serverOraNum(){
+    var elapsedMin=Math.floor((Date.now()-PAGE_LOAD_MS)/60000);
+    var h=Math.floor(SERVER_ORA_BASE/100);
+    var m=(SERVER_ORA_BASE%100)+elapsedMin;
+    h+=Math.floor(m/60); m=m%60;
+    return h*100+m;
+}
+
 var PULS_CFG = {
     attivo:      <?php echo $ui['pulsanti_stato_attivo'] ? 'true' : 'false'; ?>,
     modo:        <?php echo json_encode($ui['pulsanti_modo_chiuso']); ?>,
@@ -667,9 +718,9 @@ function _fmtOra(v){ var s=String(v); while(s.length<4) s='0'+s; return s.substr
 
 function valutaStatoPulsanti(){
     if(!PULS_CFG.attivo) return;
-    var now = new Date();
-    var cur = _oraNum(now);
-    var giornoOggi = now.getDay(); // 0=Domenica ... 6=Sabato (come date('w') in PHP)
+    
+    var cur = _serverOraNum();
+    var giornoOggi = SERVER_DAY; // 0=Domenica ... 6=Sabato (come date('w') in PHP)
     document.querySelectorAll('.btn-servizio').forEach(function(btn){
         var settimana = {};
         try { settimana = JSON.parse(btn.getAttribute('data-orari') || '{}') || {}; } catch(e){ settimana = {}; }
@@ -762,6 +813,150 @@ function stampaBiglietto(turno,numero,data){
     });
 }
 
+
+// ── Aggiornamento silenzioso (polling) ────────────────────────
+var TOTEM_POLL_MS = 180000;
+var TOTEM_LAYOUT_VERSION = <?php
+    $lv = (string)filemtime(__FILE__);
+    $ucf = __DIR__ . '/totem_ui_config.json';
+    if (file_exists($ucf)) $lv .= '_' . filemtime($ucf);
+    echo json_encode($lv);
+?>;
+var _totemVersion = '';
+var _totemPollBusy = false;
+
+function _syncServerTime(ora, day) {
+    SERVER_ORA_BASE = ora;
+    SERVER_DAY = day;
+    PAGE_LOAD_MS = Date.now();
+}
+
+function _isModalOpen() {
+    return document.querySelector('.modal-overlay.show') !== null;
+}
+
+function _creaPulsanteServizio(t) {
+    var btn = document.createElement('button');
+    btn.className = 'btn-servizio';
+    btn.setAttribute('data-idturno', t.idturno);
+    btn.setAttribute('data-nome', t.nometurno);
+    btn.setAttribute('data-orari', JSON.stringify(t.orari || {}));
+    var aria = t.nometurno + (t.descservizio ? ' – ' + t.descservizio : '');
+    btn.setAttribute('aria-label', 'Servizio ' + aria);
+    if (t.icona) {
+        var ic = document.createElement('span');
+        ic.className = 'btn-icona';
+        ic.textContent = t.icona;
+        btn.appendChild(ic);
+    }
+    var block = document.createElement('div');
+    block.className = 'btn-turno-block';
+    var lt = document.createElement('span');
+    lt.className = 'btn-lettera';
+    lt.textContent = t.nometurno;
+    block.appendChild(lt);
+    if (t.descservizio) {
+        var sep = document.createElement('span');
+        sep.className = 'btn-separatore';
+        sep.setAttribute('aria-hidden', 'true');
+        block.appendChild(sep);
+        var nm = document.createElement('span');
+        nm.className = 'btn-nome';
+        nm.textContent = t.descservizio;
+        block.appendChild(nm);
+    }
+    btn.appendChild(block);
+    var hint = document.createElement('span');
+    hint.className = 'btn-hint';
+    hint.textContent = 'Premi per il numero';
+    btn.appendChild(hint);
+    var st = document.createElement('span');
+    st.className = 'btn-stato';
+    st.style.display = 'none';
+    btn.appendChild(st);
+    return btn;
+}
+
+function applicaAggiornamentoTotem(data) {
+    if (!data || !data.version) return;
+    _syncServerTime(data.server_ora, data.server_day);
+
+    var elNome = document.querySelector('.header-nome');
+    if (elNome && data.ui) elNome.textContent = data.ui.nome_struttura || elNome.textContent;
+    var elSotto = document.querySelector('.header-sottotitolo');
+    if (data.ui && data.ui.sottotitolo) {
+        if (elSotto) elSotto.textContent = data.ui.sottotitolo;
+    }
+    var footer = document.querySelector('.kiosk-footer');
+    if (footer && data.ui) footer.textContent = data.ui.footer_testo || '';
+
+    var grid = document.querySelector('.btn-grid');
+    if (!grid || !data.turni) { valutaStatoPulsanti(); return; }
+
+    var existingIds = Array.prototype.map.call(grid.querySelectorAll('.btn-servizio'), function(b) {
+        return String(b.getAttribute('data-idturno'));
+    });
+    var newIds = data.turni.map(function(t) { return String(t.idturno); });
+    var sameStructure = existingIds.length === newIds.length && existingIds.every(function(id, i) {
+        return id === newIds[i];
+    });
+
+    if (sameStructure) {
+        data.turni.forEach(function(t) {
+            var btn = grid.querySelector('.btn-servizio[data-idturno="' + t.idturno + '"]');
+            if (!btn) return;
+            btn.setAttribute('data-orari', JSON.stringify(t.orari || {}));
+            btn.setAttribute('data-nome', t.nometurno);
+            var nome = btn.querySelector('.btn-nome');
+            if (nome) nome.textContent = t.descservizio || '';
+            var lettera = btn.querySelector('.btn-lettera');
+            if (lettera) lettera.textContent = t.nometurno;
+            if (t.icona) {
+                var ic = btn.querySelector('.btn-icona');
+                if (ic) ic.textContent = t.icona;
+            }
+        });
+    } else {
+        grid.innerHTML = '';
+        data.turni.forEach(function(t) { grid.appendChild(_creaPulsanteServizio(t)); });
+    }
+    valutaStatoPulsanti();
+}
+
+function aggiornaTotemSilenzioso() {
+    if (_totemPollBusy || _isModalOpen()) return;
+    _totemPollBusy = true;
+    fetch('totem_status.php', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data || !data.version) return;
+            if (data.layout_version && data.layout_version !== TOTEM_LAYOUT_VERSION) {
+                location.reload();
+                return;
+            }
+            if (_totemVersion === '') { _totemVersion = data.version; return; }
+            if (data.version !== _totemVersion) {
+                _totemVersion = data.version;
+                applicaAggiornamentoTotem(data);
+            } else {
+                _syncServerTime(data.server_ora, data.server_day);
+                valutaStatoPulsanti();
+            }
+        })
+        .catch(function() { /* silenzioso */ })
+        .finally(function() { _totemPollBusy = false; });
+}
+
+function avviaPollingTotem() {
+    aggiornaTotemSilenzioso();
+    setInterval(aggiornaTotemSilenzioso, TOTEM_POLL_MS);
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) aggiornaTotemSilenzioso();
+    });
+}
+
+
+
 // Auto-reload quando cambiano orari/turni (dopo sync notturna). Sicuro: differisce se modale/stampa attivi.
 var ORARI_VER = <?php echo json_encode($orariVer ?? '', JSON_UNESCAPED_UNICODE); ?>;
 var _orariReloadPending = false;
@@ -789,6 +984,7 @@ function pollOrariVersion(){
 $(document).ready(function(){
     valutaStatoPulsanti();
     setInterval(valutaStatoPulsanti,30000);
+    avviaPollingTotem();
 
     // Prima verifica dopo 60s, poi ogni 90s. Se pending e non busy → reload.
     setTimeout(function(){
@@ -799,7 +995,7 @@ $(document).ready(function(){
         }, 90000);
     }, 60000);
 
-    $('.btn-servizio').on('click',function(){
+    $(document).on('click','.btn-servizio',function(){
         var $b=$(this),id=$b.data('idturno');
         // Pulsante chiuso: se il messaggio è disattivato non fare nulla (silenzioso)
         if(PULS_CFG.attivo && PULS_CFG.modo!=='nascondi' && $b.attr('data-chiuso')==='1' && !PULS_CFG.mostraMsg){

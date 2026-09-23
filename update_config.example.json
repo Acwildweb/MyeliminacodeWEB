@@ -1,8 +1,8 @@
 {
-  "owner": "TUO_OWNER",
-  "repo": "TUO_REPO",
+  "owner": "Acwildweb",
+  "repo": "MyeliminacodeWEB",
   "token": "github_pat_xxxxxxxx",
-  "branch": "",
+  "branch": "linux",
   "protected_paths": [
     "connect.php",
     "update_config.json",

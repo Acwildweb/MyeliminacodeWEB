@@ -6,121 +6,13 @@
  * – da rete LAN  : accesso con password (condivisa con amministrazione.php)
  */
 
-session_start();
 
 require_once __DIR__ . '/printer_profiles.php';
-
-// ── Controllo accesso ────────────────────────────────────────
-$remoteIP    = $_SERVER['REMOTE_ADDR'] ?? '';
-$isLocalhost = in_array($remoteIP, ['127.0.0.1', '::1'], true);
-
-if (!$isLocalhost && !preg_match(
-    '/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|::1$|fc[0-9a-f]|fd[0-9a-f])/i',
-    $remoteIP
-)) {
-    http_response_code(403);
-    die('<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Accesso negato</title>'
-       .'<style>body{font-family:Segoe UI,sans-serif;background:#0d1b3e;color:#fff;display:flex;'
-       .'align-items:center;justify-content:center;height:100vh;margin:0}'
-       .'.b{text-align:center;padding:40px;background:rgba(255,255,255,.08);border-radius:12px}</style></head>'
-       .'<body><div class="b"><h2>403 — Accesso non consentito</h2>'
-       .'<p>Questa pagina è accessibile solo dalla rete locale.</p></div></body></html>');
-}
-
-// ── Autenticazione LAN (stessa password di config_totem_ui.php) ──────────
-$authFile  = __DIR__ . '/admin_auth.json';
-$authData  = file_exists($authFile)
-    ? (json_decode(file_get_contents($authFile), true) ?: [])
-    : [];
-$pwdHash   = $authData['password_hash'] ?? null;
-$isDefault = ($pwdHash === null);
-if ($isDefault) $pwdHash = password_hash('admin', PASSWORD_DEFAULT);
-
-$authKey   = 'totem_cfg_' . substr(md5(__DIR__), 0, 8);  // stesso token di amministrazione.php
-$authError = '';
-
-if (isset($_GET['logout'])) {
-    unset($_SESSION[$authKey]);
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
-}
-
-if (!$isLocalhost && isset($_POST['_lan_pwd'])) {
-    if (password_verify(trim($_POST['_lan_pwd']), $pwdHash)) {
-        $_SESSION[$authKey] = ['t' => time(), 'ip' => $remoteIP];
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
-    $authError = 'Password non corretta.';
-    sleep(1);
-}
-
-$sessionOk = $isLocalhost || (
-    isset($_SESSION[$authKey]) &&
-    (time() - (int)($_SESSION[$authKey]['t'] ?? 0)) < 28800 &&
-    ($_SESSION[$authKey]['ip'] ?? '') === $remoteIP
-);
-
-if (!$isLocalhost && !$sessionOk) {
-    http_response_code($authError !== '' ? 401 : 200);
-    ?>
-<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Accesso — Configurazione Stampante</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Segoe UI,Arial,sans-serif;
-     background:linear-gradient(160deg,#0d1b3e 0%,#1a3a6e 100%);
-     min-height:100vh;display:flex;align-items:center;justify-content:center}
-.login-box{background:rgba(255,255,255,.07);backdrop-filter:blur(14px);
-    border:1px solid rgba(100,160,255,.25);border-radius:16px;
-    padding:44px 36px;width:100%;max-width:380px;color:#fff;text-align:center}
-.lock{font-size:52px;margin-bottom:14px}
-h1{font-size:20px;margin-bottom:6px}
-.sub{font-size:13px;opacity:.6;margin-bottom:26px}
-input[type=password]{width:100%;padding:12px 16px;
-    border:1px solid rgba(255,255,255,.25);border-radius:8px;
-    background:rgba(255,255,255,.1);color:#fff;font-size:15px;
-    outline:none;margin-bottom:14px;letter-spacing:.06em}
-input[type=password]:focus{border-color:#42a5f5}
-.btn-login{width:100%;padding:12px;
-    background:linear-gradient(135deg,#1565c0,#0d47a1);
-    border:none;border-radius:8px;color:#fff;font-size:15px;
-    font-weight:600;cursor:pointer}
-.btn-login:hover{background:linear-gradient(135deg,#1976d2,#1565c0)}
-.err{background:rgba(220,53,69,.2);border:1px solid rgba(220,53,69,.5);
-    border-radius:6px;padding:10px;font-size:13px;margin-bottom:14px;color:#f99}
-.warn{background:rgba(255,193,7,.15);border:1px solid rgba(255,193,7,.4);
-    border-radius:6px;padding:10px 12px;font-size:12px;margin-bottom:16px;
-    color:#ffd54f;text-align:left;line-height:1.6}
-</style>
-</head>
-<body>
-<div class="login-box">
-    <div class="lock">🔒</div>
-    <h1>Configurazione Stampante</h1>
-    <p class="sub">Accesso da rete LAN — inserire la password di amministrazione</p>
-    <?php if ($isDefault): ?>
-    <div class="warn">⚠️ Stai usando la password predefinita <strong>admin</strong>.<br>
-        Cambiala in <em>amministrazione.php → 🔐 Sicurezza</em>.</div>
-    <?php endif; ?>
-    <?php if ($authError !== ''): ?>
-    <div class="err">❌ <?php echo htmlspecialchars($authError); ?></div>
-    <?php endif; ?>
-    <form method="POST">
-        <input type="password" name="_lan_pwd" placeholder="Password" autofocus autocomplete="current-password">
-        <button type="submit" class="btn-login">🔓 Accedi</button>
-    </form>
-</div>
-</body>
-</html>
-    <?php
-    exit;
-}
-// ── Fine blocco autenticazione ──────────────────────────────
+require_once __DIR__ . '/admin_auth_lib.php';
+admin_require_page('config_stampante', 'Configurazione Stampante', 'Accesso da rete LAN — inserire utente e password');
+$remoteIP = $GLOBALS['admin_remote_ip'];
+$isLocalhost = $GLOBALS['admin_is_localhost'];
+$isDefault = admin_using_default_password();
 
 $configFile = __DIR__ . '/printer_config.json';
 $message    = '';
@@ -224,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
         'print_mode'      => $newPrintMode,
         'printer_name'    => $newPrinterName,
         'local_agent_url' => trim($_POST['local_agent_url'] ?? 'http://localhost/MySanitarioConTotem/print_agent.php'),
-        'printer_model'   => normalizePrinterModel($_POST['printer_model'] ?? 'np2511d2'),
+        'printer_model'   => normalizePrinterModel($_POST['printer_model'] ?? 'axon_a8r'),
         'intestazione1'   => trim($_POST['intestazione1']   ?? 'BIGLIETTO PRENOTAZIONE'),
         'intestazione2'   => trim($_POST['intestazione2']   ?? ''),
         'piede'           => trim($_POST['piede']           ?? ''),
@@ -335,10 +227,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_print'])) {
     }
 }
 
-$printMode       = $config['print_mode']      ?? 'server';
+$printMode       = $config['print_mode']      ?? 'local_agent';
 $currentPrinter  = $config['printer_name']    ?? '';
-$localAgentUrl   = $config['local_agent_url'] ?? 'http://localhost/MySanitarioConTotem/print_agent.php';
-$printerModel    = $config['printer_model']   ?? 'np2511d2';
+$localAgentUrl   = $config['local_agent_url'] ?? defaultLocalAgentUrl();
+$printerModel    = $config['printer_model']   ?? 'axon_a8r';
 $intestazione1   = $config['intestazione1']   ?? 'BIGLIETTO PRENOTAZIONE';
 $intestazione2   = $config['intestazione2']   ?? '';
 $piede           = $config['piede']           ?? '';
@@ -367,13 +259,8 @@ if (isset($_GET['download']) && $_GET['download'] === 'agent_package') {
 
     // Costruisci printer_config_local.json dinamico
     $localJson = [
-        // Se il server era in Modalità A (percorso UNC \\server\nome),
-        // sul totem serve il nome locale → svuota il campo per forzare la personalizzazione
-        'printer_name'  => (function() use ($dlConfig) {
-            $n = $dlConfig['printer_name'] ?? '';
-            return (substr($n, 0, 2) === '\\\\') ? '' : $n;
-        })(),
-        'printer_model' => $dlConfig['printer_model'] ?? 'epson_t88',
+        'printer_name'  => '',
+        'printer_model' => $dlConfig['printer_model'] ?? 'axon_a8r',
         'intestazione1' => $dlConfig['intestazione1'] ?? $nomeStruttura,
         'intestazione2' => $dlConfig['intestazione2'] ?? '',
         'piede'         => $dlConfig['piede']         ?? '',
@@ -397,23 +284,28 @@ if (isset($_GET['download']) && $_GET['download'] === 'agent_package') {
     $dirName   = basename($dirPath) ?: 'MySanitarioConTotem';
     $readme = "# Pacchetto Agente Stampa Locale — {$nomeStruttura}\r\n";
     $readme .= "# Generato il " . date('d/m/Y H:i') . " da {$baseUrl}\r\n\r\n";
-    $readme .= "## Installazione rapida (3 passi)\r\n\r\n";
-    $readme .= "1. Installa XAMPP per Windows: https://www.apachefriends.org/\r\n";
-    $readme .= "   Avvia il pannello XAMPP e clicca **Start** su Apache.\r\n\r\n";
-    $readme .= "2. Copia l'intera cartella `{$dirName}/` in:\r\n";
-    $readme .= "   C:\\xampp\\htdocs\\{$dirName}\\\r\n\r\n";
-    $readme .= "3. Apri `printer_config_local.json` e imposta:\r\n";
-    $readme .= "   - `printer_name` con il nome esatto della stampante su questo PC\r\n";
-    $readme .= "   - `printer_model` uguale al modello scelto sul server (es. custom_tg2460 o custom_tg2480)\r\n";
-    $readme .= "   Per Custom TG: in PrinterSet impostare emulazione CUSTOM/POS, cutter Enabled,\r\n";
-    $readme .= "   Code Table PC858 (19). Non usare profili NP-2511D-2 o Generico ESC/POS.\r\n\r\n";
+    $readme .= "## Installazione rapida — Axon A8R (Modalità B)\r\n\r\n";
+    $readme .= "1. **Driver Windows A8R** (sul totem): scarica da\r\n";
+    $readme .= "   https://www.axonmicrelec.com/software-driver-prodotti-automazione-vendita-logistica-magazzino\r\n";
+    $readme .= "   → filtra modello **A8R** → *Driver Windows*. Installa e collega la stampante (USB consigliato).\r\n";
+    $readme .= "   Annota il **nome esatto** in Impostazioni → Stampanti (es. \"Axon A8R\").\r\n\r\n";
+    $readme .= "2. **XAMPP** sul totem: https://www.apachefriends.org/ — avvia Apache.\r\n";
+    $readme .= "   In `C:\\xampp\\php\\php.ini` abilita `extension=gd`, poi riavvia Apache.\r\n\r\n";
+    $readme .= "3. Copia la cartella `{$dirName}/` in `C:\\xampp\\htdocs\\{$dirName}\\`\r\n\r\n";
+    $readme .= "4. Modifica `printer_config_local.json`:\r\n";
+    $readme .= "   - `printer_name`: nome Windows della A8R\r\n";
+    $readme .= "   - `printer_model`: **axon_a8r** (non cambiare)\r\n";
+    $readme .= "   Profilo ESC/POS: PC858, GS v 0 raster, taglio GS V (manuale POS80K/A8R).\r\n\r\n";
+    $readme .= "5. Sul server apri **config_stampante.php** → **Modalità B** → salva.\r\n";
+    $readme .= "   URL agente: `{$agentUrl}`\r\n\r\n";
+    $readme .= "### Verifica\r\n\r\n";
     $readme .= "## File inclusi\r\n\r\n";
     $readme .= "| File | Descrizione |\r\n";
     $readme .= "|------|-------------|\r\n";
     $readme .= "| print_agent.php | Agente PHP che riceve la richiesta dal browser e stampa |\r\n";
     $readme .= "| printer_profiles.php | Profili comandi ESC/POS per modello stampante |\r\n";
     $readme .= "| print_raw.ps1 | Script PowerShell per stampa RAW via Windows API |\r\n";
-    $readme .= "| printer_config_local.json | Configurazione stampante locale (da personalizzare) |\r\n";
+    $readme .= "| printer_config_local.json | Config locale totem (printer_name A8R, modello axon_a8r) |\r\n";
     if (($dlConfig['logo_path'] ?? '') !== '') {
         $readme .= "| printer_logo.png | Logo da stampare in cima al biglietto |\r\n";
     }
@@ -560,11 +452,12 @@ if (isset($_GET['download']) && $_GET['download'] === 'agent_package') {
             <input type="radio" name="print_mode" value="local_agent"
                    <?php if($printMode==='local_agent') echo 'checked'; ?>
                    onchange="switchMode('local_agent')">
-            <strong>Modalità B — Agente locale sul totem (consigliata per kiosk)</strong>
-            <p>Sul totem gira un mini-server PHP locale (<code>print_agent.php</code>).
-               Il browser del totem manda la richiesta di stampa direttamente a
-               <code>http://localhost/…/print_agent.php</code> — nessun percorso di rete,
-               nessuna condivisione Windows necessaria.</p>
+            <strong>Modalità B — Agente locale sul totem (consigliata — Axon A8R)</strong>
+            <p>Sul totem Windows con stampante <strong>Axon A8R</strong> collegata in USB/Ethernet
+               gira un mini-server PHP (<code>print_agent.php</code>) via XAMPP.
+               Il browser del totem, dopo aver preso il numero dal server, invia la stampa a
+               <code>http://localhost/…/print_agent.php</code> — comandi ESC/POS dedicati al profilo
+               <code>axon_a8r</code> (PC858, GS v 0, taglio automatico).</p>
         </label>
 
         <!-- ── Pannello Modalità A ──────────────────────────────── -->
@@ -622,26 +515,20 @@ if (isset($_GET['download']) && $_GET['download'] === 'agent_package') {
                 </span>
             </div>
             <div class="info-box">
-                <strong>Come installare l'agente locale sul totem (3 passi):</strong><br><br>
-                <strong>1.</strong> Installa <strong>XAMPP per Windows</strong> sul totem
-                (<a href="https://www.apachefriends.org/" target="_blank" rel="noopener" style="color:#664d03">apachefriends.org</a>)
-                e avvia <strong>Apache</strong> dal pannello XAMPP.<br>
-                <strong>Importante:</strong> in <code>C:\xampp\php\php.ini</code> abilita GD
-                (riga <code>extension=gd</code>, eventualmente rimuovendo <code>;</code>),
-                poi riavvia Apache.<br><br>
-                <strong>2.</strong> Clicca il pulsante <em>⬇️ Scarica pacchetto</em> qui sopra e
-                copia la cartella estratta dallo ZIP in <code>C:\xampp\htdocs\</code>.<br>
-                Il pacchetto contiene già <code>print_agent.php</code>, <code>print_raw.ps1</code>,
-                <code>printer_config_local.json</code> e il logo preconfigurati con i dati attuali.<br><br>
-                <strong>3.</strong> Apri <code>printer_config_local.json</code> sul totem e
-                imposta <code>printer_name</code> con il nome <strong>esatto</strong> della stampante
-                termica installata su quel PC (Menu Start → Stampanti e scanner → clicca stampante → Proprietà → scheda Generale).<br><br>
-                ✅ <strong>Verifica:</strong> con Apache avviato, apri nel browser del totem
-                <code>http://localhost/<?php echo htmlspecialchars(basename(dirname($_SERVER['SCRIPT_NAME']))); ?>/print_agent.php</code>
-                — deve rispondere con un JSON. Poi apri
-                <code><?php echo htmlspecialchars(($scheme??'http').':// '.($_SERVER['HTTP_HOST']??'server')); ?>/totem.php</code>
-                e clicca un turno: il biglietto viene stampato.<br><br>
-                <strong>Nota:</strong> l'agente ascolta solo su <code>localhost</code>, non è esposto sulla rete.
+                <strong>Installazione Axon A8R sul totem:</strong><br><br>
+                <strong>1. Driver</strong> — Scarica il <em>Driver Windows</em> per A8R da
+                <a href="https://www.axonmicrelec.com/software-driver-prodotti-automazione-vendita-logistica-magazzino"
+                   target="_blank" rel="noopener" style="color:#664d03">axonmicrelec.com → Software e Driver</a>
+                (filtra modello A8R). Installa, collega la stampante e verifica una pagina di prova da Windows.<br><br>
+                <strong>2. XAMPP</strong> — Installa XAMPP, avvia Apache, abilita <code>extension=gd</code> in <code>php.ini</code>.<br><br>
+                <strong>3. Pacchetto agente</strong> — Clicca <em>⬇️ Scarica pacchetto</em> e copia la cartella in
+                <code>C:\xampp\htdocs\</code>.<br><br>
+                <strong>4. Config locale</strong> — In <code>printer_config_local.json</code> imposta
+                <code>printer_name</code> con il nome Windows della A8R e lascia
+                <code>printer_model</code> su <code>axon_a8r</code>.<br><br>
+                <strong>5. Server</strong> — Salva questa pagina in <strong>Modalità B</strong> con l'URL agente sotto.<br><br>
+                ✅ Verifica: <code>http://localhost/<?php echo htmlspecialchars(basename(dirname($_SERVER['SCRIPT_NAME']))); ?>/print_agent.php</code>
+                → JSON «Parametri mancanti». Poi <code>totem.php</code> sul server e stampa di test.
             </div>
 
             <!-- In Modalità B il printer_name non viene inviato al server: la stampante
@@ -660,30 +547,16 @@ if (isset($_GET['download']) && $_GET['download'] === 'agent_package') {
         <div class="section-title">🖨️ Modello stampante</div>
         <label for="printer_model">Seleziona il modello per abbinare i comandi ESC/POS corretti</label>
         <select id="printer_model" name="printer_model">
-            <option value="np2511d2"
-                <?php if ($printerModel === 'np2511d2')       echo 'selected'; ?>>
-                NP-2511D-2 / NP-3511D-2 (Nippon Printer Engineering) — attuale
+            <?php foreach (printerModelOptions() as $modelId => $modelLabel): ?>
+            <option value="<?php echo htmlspecialchars($modelId); ?>"
+                <?php if ($printerModel === $modelId) echo 'selected'; ?>>
+                <?php echo htmlspecialchars($modelLabel); ?>
             </option>
-            <option value="epson_t88"
-                <?php if ($printerModel === 'epson_t88')      echo 'selected'; ?>>
-                Epson TM-T88 V/VI/VII &mdash; TM-T20 I/II/III &mdash; TM-T70 &mdash; TM-U220
-            </option>
-            <option value="escpos_generic"
-                <?php if ($printerModel === 'escpos_generic') echo 'selected'; ?>>
-                Generico ESC/POS (Star TSP, Citizen CT-S, Bixolon, ecc.)
-            </option>
-            <option value="custom_tg2460"
-                <?php if ($printerModel === 'custom_tg2460') echo 'selected'; ?>>
-                Custom TG2460HIII (carta 60 mm) — CUSTOM/POS
-            </option>
-            <option value="custom_tg2480"
-                <?php if ($printerModel === 'custom_tg2480') echo 'selected'; ?>>
-                Custom TG2480HIII (carta 80 mm) — CUSTOM/POS
-            </option>
+            <?php endforeach; ?>
         </select>
-        <p class="note">Modifica solo se sostituisci la stampante con un modello diverso dalla NP-2511D-2.
-            Influisce su codifica caratteri, comando di taglio, avanzamento carta e comando immagine raster.<br>
-            <strong>Custom TG:</strong> usare solo i profili Custom TG2460/TG2480 (non NP-2511D-2 né Generico ESC/POS).</p>
+        <p class="note">Per <strong>Axon A8R</strong> usare il profilo dedicato <code>axon_a8r</code>
+            (ESC t 19 PC858, GS v 0 raster 576px, GS V taglio — compatibile manuale ESC/POS Axon POS80K/A8R).<br>
+            Per Custom TG: profili TG2460/TG2480. Per NP-2511D-2: profilo NP dedicato.</p>
 
         <div class="section-title">Logo in testa al biglietto</div>
 

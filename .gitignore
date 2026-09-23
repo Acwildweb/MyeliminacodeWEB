@@ -29,3 +29,11 @@ Thumbs.db
 
 # Update temp
 update_tmp/
+# Extra secret globs (any depth)
+**/connect.php
+**/update_config.json
+**/admin_auth.json
+**/printer_config.json
+**/totem_ui_config.json
+**/*_auth.json
+tocron/_stage_update/

@@ -9,3 +9,4 @@
     }
     closedir($directory_handle);
 	echo json_encode($images, true);
+    //echo implode("|", $images);

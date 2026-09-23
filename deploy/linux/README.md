@@ -1,7 +1,12 @@
 # Deploy Linux (Apache / Nginx)
 
+## Cron (esempio)
+
 Vedi `cron.d/mysanitario` e `scripts/`.
 
-Adatta path a document root e binario PHP.
+Adatta i path a:
+- document root (es. `/var/www/mysanitario`)
+- binario PHP (`/usr/bin/php`)
 
-Branch GitHub: `linux`.
+## Branch
+Usare il branch GitHub `linux` per Verifica/Aggiorna.

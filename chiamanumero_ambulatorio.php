@@ -2,8 +2,9 @@
 include 'connect.php';
 
 $nmonitor = $_POST["ipmonitor"];
+$postazione = $_POST["postazione"];
 
-$sql = "select * from coda where ipmonitor not like '%".$nmonitor."%' or ipmonitor is null order by id";
+$sql = "select * from coda_ambulatori where (ipmonitor not like '%".$nmonitor."%' or ipmonitor is null) and dachiamare = '1' and sportello = ".$postazione." order by id limit 1";
 $rs = mysqli_query($conn, $sql);
 if ($row = mysqli_fetch_assoc($rs)) {
     $numero = $row['numero'];
@@ -13,9 +14,8 @@ if ($row = mysqli_fetch_assoc($rs)) {
     $idpostazione = $row['id_postazione'];
     $id = $row['ID'];
 
-    $sql = "UPDATE coda SET ipmonitor = concat('" . $nmonitor . ";', ifnull(ipmonitor, '')) WHERE ID = $id";
+    $sql = "UPDATE coda_ambulatori SET ipmonitor = concat('" . $nmonitor . ";', ifnull(ipmonitor, '')), orariochiamata = current_timestamp WHERE ID = $id";
     $rs = mysqli_query($conn, $sql);
-    
 
     $sql = "select * from postazioni where postazione = ".$sportello;
     $rs2 = mysqli_query($conn, $sql);
@@ -24,7 +24,7 @@ if ($row = mysqli_fetch_assoc($rs)) {
     }
     mysqli_close($conn);
 
-    $testo  = $turno . "|" . $numero . "|" . $lsportello . "|" . $lsportello . "|" . $idturno;
+    $testo  = $turno . "|" . $numero . "|" . $lsportello . "|" . $lsportello . "|" . $idturno . "|" . date("H:i");
     echo $testo;
 } else {
     mysqli_close($conn);

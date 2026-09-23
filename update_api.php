@@ -63,7 +63,7 @@ try {
             echo json_encode(['ok' => false, 'error' => 'Usa POST per apply']);
             exit;
         }
-        $expected = isset($_POST['sha']) ? trim((string) $_POST['sha']);
+        $expected = isset($_POST['sha']) ? trim((string) $_POST['sha']) : '';
         $result = updateApply($expected !== '' ? $expected : null);
         echo json_encode($result, JSON_UNESCAPED_UNICODE);
         exit;
